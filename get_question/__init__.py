@@ -3,10 +3,7 @@ import logging
 import json
 import os
 from typing import Dict, Any
-
-# Azure SDK imports
-import azure.cosmos.cosmos_client as cosmos_client
-import azure.cosmos.exceptions as exceptions
+from shared_session_storage import get_session
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
@@ -27,17 +24,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # Initialize Cosmos DB client
-        cosmos_client_instance = get_cosmos_client()
-        
-        # Get session from database
-        session = get_session(cosmos_client_instance, session_id)
-        if not session:
-            return func.HttpResponse(
-                json.dumps({"error": "Session not found"}),
-                status_code=404,
-                mimetype="application/json"
-            )
+        # Get session from shared storage
+        session = get_session(session_id)
         
         # Check if assessment is completed
         if session.get('status') == 'Completed':
@@ -47,7 +35,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # Determine next question number
+        # Determine next question number based on existing answers
         current_answers = session.get('answers', [])
         next_question_number = len(current_answers) + 1
         
@@ -82,47 +70,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json"
         )
-
-def get_cosmos_client():
-    """Initialize and return Cosmos DB client"""
-    cosmos_endpoint = os.environ.get('COSMOS_ENDPOINT')
-    cosmos_key = os.environ.get('COSMOS_KEY')
-    
-    if not cosmos_endpoint or not cosmos_key:
-        raise ValueError("Cosmos DB credentials not configured")
-    
-    return cosmos_client.CosmosClient(cosmos_endpoint, cosmos_key)
-
-def get_database_name():
-    """Get database name from environment or use default"""
-    return os.environ.get('COSMOS_DATABASE_NAME', 'navigator_profiler')
-
-def get_container_name():
-    """Get container name from environment or use default"""
-    return os.environ.get('COSMOS_CONTAINER_NAME', 'sessions')
-
-def get_session(cosmos_client_instance, session_id):
-    """Retrieve session from Cosmos DB"""
-    try:
-        database_name = get_database_name()
-        container_name = get_container_name()
-        container = cosmos_client_instance.get_database_client(database_name).get_container_client(container_name)
-        
-        # Query for session by ID
-        query = "SELECT * FROM c WHERE c.id = @session_id"
-        parameters = [{"name": "@session_id", "value": session_id}]
-        
-        items = list(container.query_items(
-            query=query,
-            parameters=parameters,
-            enable_cross_partition_query=True
-        ))
-        
-        return items[0] if items else None
-        
-    except Exception as e:
-        logging.error(f"Error retrieving session: {str(e)}")
-        return None
 
 def get_question_pair(question_number):
     """Get the question pair data for the given question number"""

@@ -1,39 +1,20 @@
 import azure.functions as func
-import datetime
-import json
-import logging
+
+# Import all function modules
+from start_assessment import main as start_assessment_main
+from get_question import main as get_question_main
+from submit_answer import main as submit_answer_main
+from generate_report import main as generate_report_main
+from contact import main as contact_main
+from admin import main as admin_main
+from download_report import main as download_report_main
+from health import main as health_main
+from session_status import main as session_status_main
+from analytics import main as analytics_main
+from session_cleanup import main as session_cleanup_main
+from session_reset import main as session_reset_main
 
 app = func.FunctionApp()
-
-# Import the start_assessment function
-from start_assessment import main as start_assessment_main
-
-# Import the get_question function
-from get_question import main as get_question_main
-
-# Import the submit_answer function
-from submit_answer import main as submit_answer_main
-
-# Import the generate_report function
-from generate_report import main as generate_report_main
-
-# Import the contact function
-from contact import main as contact_main
-
-# Import the admin function
-from admin import main as admin_main
-
-# Import the download_report function
-from download_report import main as download_report_main
-
-# Import the health function
-from health import main as health_main
-
-# Import the session_status function
-from session_status import main as session_status_main
-
-# Import the analytics function
-from analytics import main as analytics_main
 
 # Register the start_assessment function
 @app.function_name(name="start_assessment")
@@ -94,3 +75,15 @@ def contact(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="api/admin/assessments", methods=["GET"])
 def admin(req: func.HttpRequest) -> func.HttpResponse:
     return admin_main(req)
+
+# Register the session_cleanup function
+@app.function_name(name="session_cleanup")
+@app.route(route="api/admin/sessions/cleanup", methods=["DELETE"])
+def session_cleanup(req: func.HttpRequest) -> func.HttpResponse:
+    return session_cleanup_main(req)
+
+# Register the session_reset function
+@app.function_name(name="session_reset")
+@app.route(route="api/admin/sessions/{sessionId}/reset", methods=["POST"])
+def session_reset(req: func.HttpRequest) -> func.HttpResponse:
+    return session_reset_main(req)

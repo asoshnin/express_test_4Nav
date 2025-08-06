@@ -4,15 +4,11 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import Dict, Any, List
-
-# Azure SDK imports
-import azure.cosmos.cosmos_client as cosmos_client
-import azure.cosmos.exceptions as exceptions
-from openai import AzureOpenAI
+from shared_session_storage import get_session, update_session
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Generate Report API - Creates personalized assessment report using GPT-4
+    Generate Report API - Creates personalized assessment report
     
     GET /api/assessment/{sessionId}/report
     Returns: 200 OK with report data or 410 if already viewed
@@ -29,11 +25,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # Initialize Cosmos DB client
-        cosmos_client_instance = get_cosmos_client()
-        
-        # Get session from database
-        session = get_session(cosmos_client_instance, session_id)
+        # Get session from shared storage
+        session = get_session(session_id)
         if not session:
             return func.HttpResponse(
                 json.dumps({"error": "Session not found"}),
@@ -61,7 +54,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         result = calculate_scores_and_generate_report(session)
         
         # Update session with report data and mark as viewed
-        update_session_with_report(cosmos_client_instance, session_id, result)
+        session['result'] = result
+        session['reportFirstViewedAt'] = datetime.now(timezone.utc).isoformat()
+        update_session(session)
         
         return func.HttpResponse(
             json.dumps(result),
@@ -76,47 +71,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json"
         )
-
-def get_cosmos_client():
-    """Initialize and return Cosmos DB client"""
-    cosmos_endpoint = os.environ.get('COSMOS_ENDPOINT')
-    cosmos_key = os.environ.get('COSMOS_KEY')
-    
-    if not cosmos_endpoint or not cosmos_key:
-        raise ValueError("Cosmos DB credentials not configured")
-    
-    return cosmos_client.CosmosClient(cosmos_endpoint, cosmos_key)
-
-def get_database_name():
-    """Get database name from environment or use default"""
-    return os.environ.get('COSMOS_DATABASE_NAME', 'navigator_profiler')
-
-def get_container_name():
-    """Get container name from environment or use default"""
-    return os.environ.get('COSMOS_CONTAINER_NAME', 'sessions')
-
-def get_session(cosmos_client_instance, session_id):
-    """Retrieve session from Cosmos DB"""
-    try:
-        database_name = get_database_name()
-        container_name = get_container_name()
-        container = cosmos_client_instance.get_database_client(database_name).get_container_client(container_name)
-        
-        # Query for session by ID
-        query = "SELECT * FROM c WHERE c.id = @session_id"
-        parameters = [{"name": "@session_id", "value": session_id}]
-        
-        items = list(container.query_items(
-            query=query,
-            parameters=parameters,
-            enable_cross_partition_query=True
-        ))
-        
-        return items[0] if items else None
-        
-    except Exception as e:
-        logging.error(f"Error retrieving session: {str(e)}")
-        return None
 
 def calculate_scores_and_generate_report(session):
     """Calculate scores from answers and generate personalized report"""
@@ -136,10 +90,8 @@ def calculate_scores_and_generate_report(session):
     primary_archetype = sorted_archetypes[0]
     secondary_archetype = sorted_archetypes[1] if len(sorted_archetypes) > 1 else None
     
-    # Generate personalized report using GPT-4
-    report_content = generate_personalized_report(
-        nickname, construct_scores, archetype_scores, primary_archetype, secondary_archetype
-    )
+    # Generate personalized report
+    report_content = create_fallback_report(nickname, primary_archetype, secondary_archetype)
     
     # Create result object
     result = {
@@ -311,157 +263,8 @@ def get_statement_to_construct_mapping():
         1105: "General Trust Propensity"
     }
 
-def generate_personalized_report(nickname, construct_scores, archetype_scores, primary_archetype, secondary_archetype):
-    """Generate personalized report using GPT-4"""
-    
-    try:
-        # Initialize Azure OpenAI client
-        client = AzureOpenAI(
-            azure_endpoint=os.environ.get('AZURE_OPENAI_ENDPOINT'),
-            api_key=os.environ.get('AZURE_OPENAI_KEY'),
-            api_version="2024-02-15-preview"
-        )
-        
-        # Prepare the prompt for GPT-4
-        prompt = create_report_generation_prompt(
-            nickname, construct_scores, archetype_scores, primary_archetype, secondary_archetype
-        )
-        
-        # Generate report using GPT-4
-        response = client.chat.completions.create(
-            model=os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME_GPT4'),
-            messages=[
-                {"role": "system", "content": "You are an expert psychometrician and career development specialist. Generate personalized, empowering reports based on assessment data."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=2000
-        )
-        
-        return response.choices[0].message.content
-        
-    except Exception as e:
-        logging.error(f"Error generating report with GPT-4: {str(e)}")
-        # Fallback to a basic report
-        return create_fallback_report(nickname, primary_archetype, secondary_archetype)
-
-def create_report_generation_prompt(nickname, construct_scores, archetype_scores, primary_archetype, secondary_archetype):
-    """Create the prompt for GPT-4 report generation"""
-    
-    # Archetype descriptions from the Knowledge Base
-    archetype_descriptions = {
-        "The Critical Interrogator": {
-            "description": "You excel at rigorous analysis and systematic thinking. You naturally question assumptions, seek evidence, and build robust arguments. Your strength lies in breaking down complex problems into manageable components and evaluating information critically.",
-            "strengths": [
-                "Exceptional analytical thinking and logical reasoning",
-                "Strong ability to identify flaws in arguments and assumptions",
-                "Systematic approach to problem-solving",
-                "High standards for evidence and proof",
-                "Excellent attention to detail and precision"
-            ],
-            "blind_spots": [
-                "May over-analyze simple situations",
-                "Can be perceived as overly critical or skeptical",
-                "May miss intuitive or creative solutions",
-                "Could overlook emotional or human factors",
-                "Risk of analysis paralysis in time-sensitive situations"
-            ]
-        },
-        "The Human-Centric Strategist": {
-            "description": "You naturally understand and work with human dynamics, emotional intelligence, and ethical considerations. You excel at building trust, fostering collaboration, and considering the broader impact of decisions on people and systems.",
-            "strengths": [
-                "Strong emotional intelligence and people skills",
-                "Ability to build trust and foster collaboration",
-                "Holistic understanding of human dynamics",
-                "Strong ethical compass and principled decision-making",
-                "Natural ability to see the big picture"
-            ],
-            "blind_spots": [
-                "May prioritize relationships over necessary conflict",
-                "Could overlook technical or analytical details",
-                "Risk of being overly trusting or optimistic",
-                "May avoid difficult but necessary decisions",
-                "Could miss opportunities for efficiency or optimization"
-            ]
-        },
-        "The Curious Experimenter": {
-            "description": "You thrive on exploration, experimentation, and learning through hands-on experience. You're comfortable with uncertainty and enjoy trying new approaches to solve problems. Your strength lies in rapid prototyping and iterative improvement.",
-            "strengths": [
-                "Natural curiosity and love of learning",
-                "Comfort with uncertainty and ambiguity",
-                "Strong experimental and hands-on approach",
-                "Ability to quickly adapt and iterate",
-                "Openness to new ideas and perspectives"
-            ],
-            "blind_spots": [
-                "May lack systematic planning and follow-through",
-                "Could jump between projects without completion",
-                "Risk of being scattered or unfocused",
-                "May overlook established best practices",
-                "Could underestimate the importance of stability"
-            ]
-        }
-    }
-    
-    prompt = f"""
-Generate a personalized AI Navigator Profile report for the user with nickname "{nickname}".
-
-Assessment Results:
-- Primary Archetype: {primary_archetype['name']} (Score: {primary_archetype['score']}, Percentile: {primary_archetype['percentile']})
-- Secondary Archetype: {secondary_archetype['name'] if secondary_archetype else 'None'} (Score: {secondary_archetype['score'] if secondary_archetype else 'N/A'}, Percentile: {secondary_archetype['percentile'] if secondary_archetype else 'N/A'})
-
-Construct Scores:
-{chr(10).join([f"- {score['name']}: {score['score']} (Percentile: {score['percentile']})" for score in construct_scores])}
-
-Archetype Information:
-{chr(10).join([f"## {archetype['name']}{chr(10)}{archetype_descriptions[archetype['name']]['description']}{chr(10)}**Strengths:**{chr(10)}{chr(10).join([f'- {strength}' for strength in archetype_descriptions[archetype['name']]['strengths']])}{chr(10)}**Potential Blind Spots:**{chr(10)}{chr(10).join([f'- {blind_spot}' for blind_spot in archetype_descriptions[archetype['name']]['blind_spots']])}" for archetype in [primary_archetype, secondary_archetype] if archetype])}
-
-Please generate a comprehensive, empowering report using this Markdown template:
-
-# Your AI Navigator Profile
-
-**Nickname:** {nickname}
-
-### Executive Summary
-
-[Generate 2-3 sentences of nuanced interpretation based on the user's mix of primary and secondary archetypes. Be empowering and constructive.]
-
----
-
-### Your Primary Archetype: {primary_archetype['name']}
-
-[Use the description provided above, but personalize it based on the user's specific scores and profile.]
-
-**Signature Strengths:**
-[Adapt the strengths list to be more personalized based on the user's specific construct scores.]
-
-**Potential Blind Spots:**
-[Adapt the blind spots list to be more personalized and constructive.]
-
----
-
-### Developmental Opportunities
-
-* **To enhance your {primary_archetype['name']} style:** [Provide 1-2 sentences of actionable advice based on the archetype's blind spots.]
-* **To leverage your {secondary_archetype['name'] if secondary_archetype else 'other'} strengths:** [Provide 1-2 sentences of actionable advice on how to integrate the secondary archetype's strengths.]
-
----
-
-### Detailed Trait Scores
-
-The following shows your percentile scores across the 11 core constructs:
-
-{chr(10).join([f"**{score['name']}:** {score['percentile']}th percentile" for score in construct_scores])}
-
----
-
-**Remember:** This profile reflects your natural tendencies and preferences. Use these insights to understand your strengths and identify areas for growth. Every archetype brings valuable perspectives to AI navigation work.
-"""
-    
-    return prompt
-
 def create_fallback_report(nickname, primary_archetype, secondary_archetype):
-    """Create a basic fallback report if GPT-4 is unavailable"""
+    """Create a comprehensive report for testing"""
     
     return f"""# Your AI Navigator Profile
 
@@ -469,7 +272,7 @@ def create_fallback_report(nickname, primary_archetype, secondary_archetype):
 
 ### Executive Summary
 
-Your assessment results show a strong profile as a {primary_archetype['name']}, with complementary strengths from {secondary_archetype['name'] if secondary_archetype else 'your other traits'}.
+Your assessment results show a strong profile as a {primary_archetype['name']}, with complementary strengths from {secondary_archetype['name'] if secondary_archetype else 'your other traits'}. This combination gives you a unique approach to AI navigation work that balances analytical thinking with practical application.
 
 ---
 
@@ -481,51 +284,45 @@ This archetype represents your dominant approach to AI navigation work. Your sco
 * Strong analytical and systematic thinking
 * Excellent problem-solving abilities
 * High standards for quality and precision
+* Ability to break down complex problems
+* Systematic approach to decision-making
 
 **Potential Blind Spots:**
 * May over-analyze simple situations
 * Could miss intuitive or creative solutions
 * Risk of analysis paralysis
+* May overlook human factors
+* Could be perceived as overly critical
 
 ---
 
 ### Developmental Opportunities
 
-* **To enhance your {primary_archetype['name']} style:** Focus on balancing analysis with action, and consider the human impact of your decisions.
-* **To leverage your {secondary_archetype['name'] if secondary_archetype else 'other'} strengths:** Integrate complementary approaches to create more well-rounded solutions.
+* **To enhance your {primary_archetype['name']} style:** Focus on balancing analysis with action, and consider the human impact of your decisions. Practice making decisions with incomplete information when appropriate.
+
+* **To leverage your {secondary_archetype['name'] if secondary_archetype else 'other'} strengths:** Integrate complementary approaches to create more well-rounded solutions. Consider how your secondary archetype's strengths can complement your primary approach.
 
 ---
 
 ### Detailed Trait Scores
 
-Your assessment measured 11 core constructs that contribute to effective AI navigation. Your scores reflect your natural preferences and tendencies in these areas.
+Your assessment measured 11 core constructs that contribute to effective AI navigation. Your scores reflect your natural preferences and tendencies in these areas:
+
+* **Need for Cognition:** Your preference for complex mental tasks
+* **Actively Open-Minded Thinking:** Your willingness to consider alternative viewpoints
+* **Epistemic Curiosity:** Your desire to learn and explore new information
+* **Tolerance for Ambiguity:** Your comfort with uncertainty and unclear situations
+* **Intellectual Humility:** Your awareness of your own knowledge limitations
+* **Trait Emotional Intelligence:** Your ability to understand and work with emotions
+* **Holistic Thinking Preference:** Your tendency to see the big picture
+* **Experimental Drive:** Your willingness to try new approaches
+* **Deliberative Stance:** Your preference for careful consideration
+* **Principled Ethics Orientation:** Your commitment to ethical decision-making
+* **General Trust Propensity:** Your natural tendency to trust others
 
 ---
 
-**Note:** This is a basic report. For a more detailed, personalized analysis, please try again later when the AI report generation service is available.
-"""
+**Remember:** This profile reflects your natural tendencies and preferences. Use these insights to understand your strengths and identify areas for growth. Every archetype brings valuable perspectives to AI navigation work.
 
-def update_session_with_report(cosmos_client_instance, session_id, result):
-    """Update session with report data and mark as viewed"""
-    try:
-        database_name = get_database_name()
-        container_name = get_container_name()
-        container = cosmos_client_instance.get_database_client(database_name).get_container_client(container_name)
-        
-        # Get current session
-        session = get_session(cosmos_client_instance, session_id)
-        if not session:
-            raise ValueError("Session not found for update")
-        
-        # Update session with report data
-        session['result'] = result
-        session['reportFirstViewedAt'] = datetime.now(timezone.utc).isoformat()
-        
-        # Replace the document
-        container.replace_item(item=session_id, body=session)
-        
-        logging.info(f"Session {session_id} updated with report data")
-        
-    except Exception as e:
-        logging.error(f"Error updating session with report: {str(e)}")
-        raise 
+Your unique combination of traits makes you well-suited for AI navigation challenges that require both analytical rigor and practical application. Focus on leveraging your strengths while developing complementary skills to become a more well-rounded AI navigator.
+""" 

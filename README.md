@@ -28,6 +28,8 @@ A production-ready Azure Functions backend for the AI Navigator Profiler, a psyc
 | `/api/admin/assessments` | GET | Admin dashboard for all sessions | ✅ Working |
 | `/api/analytics` | GET | System metrics and usage statistics | ✅ Working |
 | `/api/health` | GET | Health check for monitoring | ✅ Working |
+| `/api/admin/sessions/cleanup` | DELETE | Clean up old sessions (admin) | ✅ Working |
+| `/api/admin/sessions/{sessionId}/reset` | POST | Reset session for testing | ✅ Working |
 
 ## 🏗️ Architecture
 
@@ -43,6 +45,14 @@ A production-ready Azure Functions backend for the AI Navigator Profiler, a psyc
 ### Assessment Engine
 - 40 pre-generated question pairs from psychometric framework
 - 11 core constructs measured across 3 archetypes
+- Real-time progress tracking and session management
+- Comprehensive analytics and reporting
+
+### Admin Management
+- Session cleanup for old/abandoned sessions
+- Session reset for development/testing
+- Detailed analytics with period-based filtering
+- Admin dashboard with pagination and filtering
 - Real-time progress tracking and validation
 - Unique nickname generation with collision detection
 
