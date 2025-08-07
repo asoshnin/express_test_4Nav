@@ -9,6 +9,9 @@ from typing import Dict, Any
 import azure.cosmos.cosmos_client as cosmos_client
 import azure.cosmos.exceptions as exceptions
 
+# Import shared storage for fallback
+from shared_session_storage import get_session as get_session_memory
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
     Session Status API - Provides assessment progress information
@@ -28,11 +31,18 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
 
-        # Initialize Cosmos DB client
-        cosmos_client_instance = get_cosmos_client()
-
-        # Get session from database
-        session = get_session(cosmos_client_instance, session_id)
+        # Check if we should use in-memory storage
+        use_in_memory = os.environ.get('USE_IN_MEMORY_STORAGE', 'false').lower() == 'true'
+        
+        if use_in_memory:
+            # Use in-memory storage
+            session = get_session_memory(session_id)
+        else:
+            # Initialize Cosmos DB client
+            cosmos_client_instance = get_cosmos_client()
+            # Get session from database
+            session = get_session(cosmos_client_instance, session_id)
+            
         if not session:
             return func.HttpResponse(
                 json.dumps({"error": "Session not found"}),
@@ -98,17 +108,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             result = session.get('result', {})
             response_data["result"] = {
                 "primaryArchetype": result.get('primaryArchetype'),
-                "secondaryArchetype": result.get('secondaryArchetype'),
-                "reportGenerated": bool(result.get('reportContent')),
-                "reportViewed": bool(report_viewed_at)
+                "archetypeDescription": result.get('archetypeDescription'),
+                "scores": result.get('scores', {})
             }
 
         return func.HttpResponse(
-            json.dumps(response_data, indent=2),
+            json.dumps(response_data),
             status_code=200,
             mimetype="application/json"
         )
-
+        
     except Exception as e:
         logging.error(f"Error in session_status: {str(e)}")
         return func.HttpResponse(
@@ -121,18 +130,16 @@ def get_cosmos_client():
     """Initialize and return Cosmos DB client"""
     cosmos_endpoint = os.environ.get('COSMOS_ENDPOINT')
     cosmos_key = os.environ.get('COSMOS_KEY')
-
+    
     if not cosmos_endpoint or not cosmos_key:
         raise ValueError("Cosmos DB credentials not configured")
-
+    
     return cosmos_client.CosmosClient(cosmos_endpoint, cosmos_key)
 
 def get_database_name():
-    """Get database name from environment or use default"""
     return os.environ.get('COSMOS_DATABASE_NAME', 'navigator_profiler')
 
 def get_container_name():
-    """Get container name from environment or use default"""
     return os.environ.get('COSMOS_CONTAINER_NAME', 'sessions')
 
 def get_session(cosmos_client_instance, session_id):
@@ -140,20 +147,27 @@ def get_session(cosmos_client_instance, session_id):
     try:
         database_name = get_database_name()
         container_name = get_container_name()
+        
         container = cosmos_client_instance.get_database_client(database_name).get_container_client(container_name)
-
-        # Query for session by ID
+        
+        # Query for the session
         query = "SELECT * FROM c WHERE c.id = @session_id"
         parameters = [{"name": "@session_id", "value": session_id}]
-
+        
         items = list(container.query_items(
             query=query,
             parameters=parameters,
             enable_cross_partition_query=True
         ))
-
-        return items[0] if items else None
-
+        
+        if items:
+            return items[0]
+        else:
+            return None
+            
+    except exceptions.CosmosResourceNotFoundError:
+        logging.warning(f"Database or container not found for session {session_id}")
+        return None
     except Exception as e:
-        logging.error(f"Error retrieving session: {str(e)}")
+        logging.error(f"Error retrieving session {session_id}: {str(e)}")
         return None 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Download, Mail, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Download, Mail, CheckCircle, AlertCircle, TrendingUp, RefreshCw } from 'lucide-react';
 import apiService from '../../services/api';
 
-const ReportViewer = ({ report, sessionId, onDownload, onContact }) => {
+const ReportViewer = ({ report, sessionId, onDownload, onContact, onRepeatAssessment }) => {
   const [email, setEmail] = useState('');
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -34,6 +34,10 @@ const ReportViewer = ({ report, sessionId, onDownload, onContact }) => {
     } finally {
       setSubmittingContact(false);
     }
+  };
+
+  const handleRepeatAssessment = () => {
+    onRepeatAssessment?.();
   };
 
   if (!report) {
@@ -90,6 +94,14 @@ const ReportViewer = ({ report, sessionId, onDownload, onContact }) => {
           >
             <Download className="w-5 h-5" />
             <span>{downloading ? 'Downloading...' : 'Download Report'}</span>
+          </button>
+          
+          <button
+            onClick={handleRepeatAssessment}
+            className="btn-secondary flex items-center justify-center space-x-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>Repeat Assessment</span>
           </button>
         </div>
       </div>

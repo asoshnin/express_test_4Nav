@@ -11,9 +11,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     Generate Report API - Creates personalized assessment report
     
     GET /api/assessment/{sessionId}/report
+    OPTIONS /api/assessment/{sessionId}/report (for CORS preflight)
     Returns: 200 OK with report data or 410 if already viewed
     """
     logging.info('Python HTTP trigger function processed a request.')
+    
+    # Handle CORS preflight requests
+    if req.method == "OPTIONS":
+        return func.HttpResponse(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Max-Age": "86400"
+            }
+        )
     
     try:
         # Get session ID from URL path
@@ -22,7 +35,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Session ID is required"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Get session from shared storage
@@ -31,7 +49,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Session not found"}),
                 status_code=404,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Check if assessment is completed
@@ -39,7 +62,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Assessment not completed"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Check if report has already been viewed
@@ -47,7 +75,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Report already viewed"}),
                 status_code=410,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Calculate scores and generate report
@@ -61,7 +94,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps(result),
             status_code=200,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
         
     except Exception as e:
@@ -69,7 +107,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
 
 def calculate_scores_and_generate_report(session):

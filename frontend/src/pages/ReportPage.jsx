@@ -2,7 +2,7 @@ import React from 'react';
 import Header from '../components/common/Header';
 import ReportViewer from '../components/assessment/ReportViewer';
 
-const ReportPage = ({ session, report }) => {
+const ReportPage = ({ session, report, onRepeatAssessment }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header currentPage="report" nickname={session?.nickname} />
@@ -11,6 +11,7 @@ const ReportPage = ({ session, report }) => {
         <ReportViewer
           report={report}
           sessionId={session?.sessionId}
+          onRepeatAssessment={onRepeatAssessment}
         />
       </div>
     </div>

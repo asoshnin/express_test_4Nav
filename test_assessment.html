@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Test</title>
+</head>
+<body>
+    <h1>Assessment API Test</h1>
+    <button onclick="testAssessment()">Test Assessment API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAssessment() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:7071/api/assessment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>Success: ${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<pre>Error: ${error.message}</pre>`;
+                console.error('Test failed:', error);
+            }
+        }
+    </script>
+</body>
+</html>

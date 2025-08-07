@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Comprehensive Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Comprehensive Report Functionality</h1>
+    
+    <div class="test-section">
+        <h2>1. Create Test Session</h2>
+        <button onclick="createSession()">Create Session</button>
+        <div id="session-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Submit Test Answers</h2>
+        <button onclick="submitAnswers()">Submit 40 Test Answers</button>
+        <div id="answers-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Comprehensive Report</h2>
+        <button onclick="testComprehensiveReport()">Test Comprehensive Report</button>
+        <div id="report-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Open Comprehensive Report in New Window</h2>
+        <button onclick="openComprehensiveReport()">Open Comprehensive Report</button>
+        <div id="open-result" class="result"></div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        
+        async function apiCall(endpoint, options = {}) {
+            const baseUrl = 'http://localhost:7071/api';
+            const url = `${baseUrl}${endpoint}`;
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            try {
+                console.log('Making API call to:', url, 'with options:', options);
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+        
+        async function createSession() {
+            try {
+                const session = await apiCall('/assessment', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                currentSessionId = session.sessionId;
+                document.getElementById('session-result').innerHTML = `
+                    <strong>Session created:</strong><br>
+                    Session ID: ${session.sessionId}<br>
+                    Nickname: ${session.nickname}
+                `;
+            } catch (error) {
+                document.getElementById('session-result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function submitAnswers() {
+            if (!currentSessionId) {
+                document.getElementById('answers-result').innerHTML = 'Please create a session first.';
+                return;
+            }
+            
+            try {
+                // Submit 40 answers (A and B alternating)
+                for (let i = 1; i <= 40; i++) {
+                    const chosenStatementId = i % 2 === 0 ? 'A' : 'B';
+                    await apiCall(`/assessment/${currentSessionId}/answer`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            questionNumber: i,
+                            chosenStatementId: chosenStatementId
+                        })
+                    });
+                    
+                    // Add a small delay between requests
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                document.getElementById('answers-result').innerHTML = `
+                    <strong>Success!</strong><br>
+                    Submitted 40 answers for session: ${currentSessionId}
+                `;
+            } catch (error) {
+                document.getElementById('answers-result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testComprehensiveReport() {
+            if (!currentSessionId) {
+                document.getElementById('report-result').innerHTML = 'Please create a session and submit answers first.';
+                return;
+            }
+            
+            try {
+                // Check session status
+                const status = await apiCall(`/assessment/${currentSessionId}/status`);
+                document.getElementById('report-result').innerHTML = `
+                    <strong>Session Status:</strong><br>
+                    Status: ${status.status}<br>
+                    Progress: ${status.progress || 'N/A'}
+                `;
+                
+                if (status.status === 'Completed') {
+                    // Try to get the report
+                    const report = await apiCall(`/assessment/${currentSessionId}/report`);
+                    document.getElementById('report-result').innerHTML += `
+                        <br><strong>Report Retrieved Successfully!</strong><br>
+                        Primary Archetype: ${report.primaryArchetype}<br>
+                        Report Content Length: ${report.reportContent ? report.reportContent.length : 0} characters
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('report-result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        function openComprehensiveReport() {
+            if (!currentSessionId) {
+                document.getElementById('open-result').innerHTML = 'Please create a session first.';
+                return;
+            }
+            
+            const url = `http://localhost:8000/DevDocs/Express_methodology_explainer.html?session=${currentSessionId}`;
+            window.open(url, '_blank');
+            document.getElementById('open-result').innerHTML = `
+                <strong>Opening comprehensive report...</strong><br>
+                URL: ${url}
+            `;
+        }
+    </script>
+</body>
+</html>

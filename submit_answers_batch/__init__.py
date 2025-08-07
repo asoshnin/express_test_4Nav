@@ -3,16 +3,16 @@ import logging
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, List
 from shared_session_storage import get_session, update_session
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
-    Submit Answer API - Handles user answer submissions for assessment questions
+    Submit Answers Batch API - Handles all user answers at once for faster processing
     
-    POST /api/assessment/{sessionId}/answer
-    OPTIONS /api/assessment/{sessionId}/answer (for CORS preflight)
-    Request Body: {"questionNumber": 1, "chosenStatementId": "A"}
+    POST /api/assessment/{sessionId}/answers
+    OPTIONS /api/assessment/{sessionId}/answers (for CORS preflight)
+    Request Body: {"answers": [{"questionNumber": 1, "chosenStatementId": "A"}, ...]}
     Returns: 204 No Content on success
     """
     logging.info('Python HTTP trigger function processed a request.')
@@ -60,12 +60,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # Validate required fields
-        question_number = request_body.get('questionNumber')
-        chosen_statement_id = request_body.get('chosenStatementId')
-        
-        if question_number is None or chosen_statement_id is None:
+        answers = request_body.get('answers')
+        if not answers or not isinstance(answers, list):
             return func.HttpResponse(
-                json.dumps({"error": "questionNumber and chosenStatementId are required"}),
+                json.dumps({"error": "answers array is required"}),
                 status_code=400,
                 mimetype="application/json",
                 headers={
@@ -75,23 +73,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
         
-        # Validate question number range
-        if not isinstance(question_number, int) or question_number < 1 or question_number > 40:
+        # Validate we have exactly 40 answers
+        if len(answers) != 40:
             return func.HttpResponse(
-                json.dumps({"error": "questionNumber must be between 1 and 40"}),
-                status_code=400,
-                mimetype="application/json",
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-                }
-            )
-        
-        # Validate statement ID format
-        if chosen_statement_id not in ['A', 'B']:
-            return func.HttpResponse(
-                json.dumps({"error": "chosenStatementId must be 'A' or 'B'"}),
+                json.dumps({"error": f"Expected 40 answers, got {len(answers)}"}),
                 status_code=400,
                 mimetype="application/json",
                 headers={
@@ -103,6 +88,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         
         # Get session from shared storage
         session = get_session(session_id)
+        if not session:
+            return func.HttpResponse(
+                json.dumps({"error": "Session not found"}),
+                status_code=404,
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
+            )
         
         # Check if assessment is completed
         if session.get('status') == 'Completed':
@@ -117,27 +113,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 }
             )
         
-        # Validate question progression
-        current_answers = session.get('answers', [])
-        expected_question_number = len(current_answers) + 1
-        
-        if question_number != expected_question_number:
-            return func.HttpResponse(
-                json.dumps({"error": f"Expected question {expected_question_number}, got {question_number}"}),
-                status_code=400,
-                mimetype="application/json",
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-                }
-            )
-        
-        # Check if this question was already answered
-        for answer in current_answers:
-            if answer.get('questionNumber') == question_number:
+        # Process all answers at once
+        processed_answers = []
+        for i, answer_data in enumerate(answers):
+            question_number = answer_data.get('questionNumber')
+            chosen_statement_id = answer_data.get('chosenStatementId')
+            
+            # Validate answer data
+            if question_number is None or chosen_statement_id is None:
                 return func.HttpResponse(
-                    json.dumps({"error": f"Question {question_number} already answered"}),
+                    json.dumps({"error": f"Answer {i+1}: questionNumber and chosenStatementId are required"}),
                     status_code=400,
                     mimetype="application/json",
                     headers={
@@ -146,41 +131,66 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         "Access-Control-Allow-Headers": "Content-Type, Authorization"
                     }
                 )
+            
+            # Validate question number
+            if not isinstance(question_number, int) or question_number < 1 or question_number > 40:
+                return func.HttpResponse(
+                    json.dumps({"error": f"Answer {i+1}: questionNumber must be between 1 and 40"}),
+                    status_code=400,
+                    mimetype="application/json",
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                    }
+                )
+            
+            # Validate statement ID
+            if chosen_statement_id not in ['A', 'B']:
+                return func.HttpResponse(
+                    json.dumps({"error": f"Answer {i+1}: chosenStatementId must be 'A' or 'B'"}),
+                    status_code=400,
+                    mimetype="application/json",
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                    }
+                )
+            
+            # Get question pair to validate the statement ID and get construct info
+            question_pair = get_question_pair(question_number)
+            if chosen_statement_id not in question_pair:
+                return func.HttpResponse(
+                    json.dumps({"error": f"Answer {i+1}: Invalid statement ID: {chosen_statement_id}"}),
+                    status_code=400,
+                    mimetype="application/json",
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                    }
+                )
+            
+            # Get the chosen statement and its construct
+            chosen_statement = question_pair[chosen_statement_id]
+            construct_id = get_construct_for_statement_id(chosen_statement['id'])
+            
+            # Create answer record
+            answer_record = {
+                "questionNumber": question_number,
+                "chosenStatementId": chosen_statement_id,
+                "chosenStatement": chosen_statement,
+                "constructId": construct_id,
+                "submittedAt": datetime.now(timezone.utc).isoformat()
+            }
+            
+            processed_answers.append(answer_record)
         
-        # Get question pair to validate the statement ID and get construct info
-        question_pair = get_question_pair(question_number)
-        if chosen_statement_id not in question_pair:
-            return func.HttpResponse(
-                json.dumps({"error": f"Invalid statement ID: {chosen_statement_id}"}),
-                status_code=400,
-                mimetype="application/json",
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-                }
-            )
-        
-        # Get the chosen statement and its construct
-        chosen_statement = question_pair[chosen_statement_id]
-        construct_id = get_construct_for_statement_id(chosen_statement['id'])
-        
-        # Create answer record
-        answer_record = {
-            "questionNumber": question_number,
-            "chosenStatementId": chosen_statement_id,
-            "chosenStatement": chosen_statement,
-            "constructId": construct_id,
-            "submittedAt": datetime.now(timezone.utc).isoformat()
-        }
-        
-        # Add answer to session
-        session['answers'].append(answer_record)
-        
-        # Check if this was the last question
-        if question_number >= 40:
-            session['status'] = 'Completed'
-            session['completedAt'] = datetime.now(timezone.utc).isoformat()
+        # Add all answers to session at once
+        session['answers'] = processed_answers
+        session['status'] = 'Completed'
+        session['completedAt'] = datetime.now(timezone.utc).isoformat()
         
         # Update session in storage
         update_session(session)
@@ -196,7 +206,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         
     except Exception as e:
-        logging.error(f"Error in submit_answer: {str(e)}")
+        logging.error(f"Error in submit_answers_batch: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,
@@ -356,4 +366,4 @@ def get_construct_for_statement_id(statement_id):
         1105: "General Trust Propensity"
     }
     
-    return construct_mapping.get(statement_id, "Unknown") 
+    return construct_mapping.get(statement_id, "Unknown")

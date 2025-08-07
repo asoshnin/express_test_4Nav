@@ -12,9 +12,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     Start Assessment API - Creates a new assessment session with a unique nickname
     
     POST /api/assessment
+    OPTIONS /api/assessment (for CORS preflight)
     Returns: 201 Created with sessionId and nickname
     """
     logging.info('Python HTTP trigger function processed a request.')
+    
+    # Handle CORS preflight requests
+    if req.method == "OPTIONS":
+        return func.HttpResponse(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Max-Age": "86400"
+            }
+        )
     
     try:
         # Generate unique nickname (simplified for testing)
@@ -36,7 +49,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps(response_data),
             status_code=201,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
         
     except Exception as e:
@@ -44,7 +62,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
 
 def generate_simple_nickname():

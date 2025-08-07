@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Navigator Express Profiler</title>
+    <style>
+        :root {
+            --primary-bg-color: #f4f7f9;
+            --container-bg-color: #ffffff;
+            --text-color: #333333;
+            --primary-accent-color: #007bff;
+            --secondary-accent-color: #0056b3;
+            --progress-bar-bg: #e9ecef;
+            --border-color: #dee2e6;
+            --shadow-color: rgba(0, 0, 0, 0.05);
+            --chart-fill-color: rgba(0, 123, 255, 0.2);
+            --chart-stroke-color: rgba(0, 123, 255, 0.8);
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: var(--primary-bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .profiler-container {
+            width: 100%;
+            max-width: 700px;
+            background-color: var(--container-bg-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            padding: 2rem 2.5rem;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #start-screen h1 {
+            font-size: 1.8rem;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        #start-screen p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        #start-screen ul {
+            padding-left: 20px;
+            margin-bottom: 2rem;
+        }
+
+        #start-screen li {
+            margin-bottom: 0.5rem;
+        }
+
+        .start-button {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary-accent-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .start-button:hover {
+            background-color: var(--secondary-accent-color);
+        }
+
+        #question-screen .progress-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--progress-bar-bg);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background-color: var(--primary-accent-color);
+            transition: width 0.3s ease;
+        }
+        
+        .question-header {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+
+        .question-prompt {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .choice-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .choice-button {
+            padding: 1rem;
+            font-size: 1rem;
+            text-align: left;
+            background-color: var(--container-bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+            width: 100%;
+        }
+
+        .choice-button:hover {
+            border-color: var(--primary-accent-color);
+            background-color: #f8f9fa;
+        }
+        
+        /* Report Screen Styles */
+        #report-screen h2 {
+            font-size: 1.8rem;
+            color: var(--text-color);
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        
+        #report-screen h3 {
+            font-size: 1.1rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        #report-screen h4 {
+            font-size: 1.2rem;
+            margin-top: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-accent-color);
+        }
+
+        #report-screen ul {
+            padding-left: 20px;
+        }
+        
+        #report-screen li {
+             margin-bottom: 0.5rem;
+        }
+        
+        #archetype-chart-container {
+            width: 100%;
+            max-width: 350px;
+            margin: 1.5rem auto;
+        }
+        
+        #interpretation-text {
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--primary-accent-color);
+            padding: 1rem 1.5rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+        
+        .traits-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 0.5rem 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .trait-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .trait-name {
+            color: #333;
+        }
+        
+        .trait-score {
+            font-weight: bold;
+            color: var(--secondary-accent-color);
+        }
+
+        .hidden {
+            display: none;
+        }
+        
+        /* Mobile-first responsiveness */
+        @media (max-width: 600px) {
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+            .profiler-container {
+                border-radius: 0;
+                height: 100%;
+                box-shadow: none;
+            }
+            .screen {
+                padding: 1.5rem;
+            }
+            #start-screen h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="profiler-container">
+        
+        <div id="start-screen" class="screen">
+            <h1>AI Navigator Express Profiler</h1>
+            <p>Welcome. This assessment is designed to understand your natural preferences and work style.</p>
+            <ul>
+                <li>The assessment is untimed but should take approximately 10-12 minutes.</li>
+                <li>There are no right or wrong answers.</li>
+                <li>Please go with your first instinct and do not overthink your choices.</li>
+                <li>For each pair of statements, choose the one that is "More like me."</li>
+            </ul>
+            <button id="start-btn" class="start-button">Start Assessment</button>
+        </div>
+
+        <div id="question-screen" class="screen hidden">
+            <div class="progress-container">
+                <div class="question-header">
+                    <span id="question-counter"></span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+            <p class="question-prompt">Which statement is more like you?</p>
+            <div class="choice-buttons">
+                <button id="choice-a-btn" class="choice-button"></button>
+                <button id="choice-b-btn" class="choice-button"></button>
+            </div>
+        </div>
+
+        <div id="report-screen" class="screen hidden">
+            <h2>Your Archetype Profile</h2>
+            <div id="archetype-chart-container">
+                <canvas id="archetype-chart"></canvas>
+            </div>
+            <h3>Interpretation</h3>
+            <div id="interpretation-text"></div>
+            <h3>Primary Archetype Details</h3>
+            <div id="primary-archetype-details"></div>
+            <h3>Underlying Trait Scores</h3>
+            <div id="traits-breakdown" class="traits-breakdown"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const questions = [
+            { "item_id": 1, "statement_a": { "text": "I tend to trust new colleagues until I have a reason not to.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I like to analyze a problem from every angle before making a decision.", "construct": "Need for Cognition" } },
+            { "item_id": 2, "statement_a": { "text": "I feel it's important to stick to principles of fairness, even if it makes things difficult.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I am good at sensing what others are feeling, even if they don't say it.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 3, "statement_a": { "text": "My first instinct with a new tool is to start playing with it to see how it works.", "construct": "Experimental Drive" }, "statement_b": { "text": "I am comfortable moving forward on a project even if all the details aren't finalized.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 4, "statement_a": { "text": "I readily accept that my own beliefs could be wrong.", "construct": "Intellectual Humility" }, "statement_b": { "text": "I enjoy listening to arguments that challenge my current point of view.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 5, "statement_a": { "text": "I tend to pause and think things through rather than relying on my gut instinct.", "construct": "Deliberative Stance" }, "statement_b": { "text": "When I find a topic interesting, I feel a strong desire to learn everything about it.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 6, "statement_a": { "text": "I like to understand the big picture before diving into the individual components.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I am drawn to tasks that require me to think deeply and concentrate.", "construct": "Need for Cognition" } },
+            { "item_id": 7, "statement_a": { "text": "I'm good at staying calm under pressure.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I'm quick to admit when a task is beyond my current expertise.", "construct": "Intellectual Humility" } },
+            { "item_id": 8, "statement_a": { "text": "I generally assume people are telling the truth.", "construct": "General Trust Propensity" }, "statement_b": { "text": "An unfair outcome is worse than an inefficient one.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 9, "statement_a": { "text": "I actively look for evidence that might contradict my existing beliefs.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I learn best by trying things out for myself.", "construct": "Experimental Drive" } },
+            { "item_id": 10, "statement_a": { "text": "The feeling of 'not knowing' motivates me to find an answer.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I prefer jobs where my day-to-day tasks are varied and unpredictable.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 11, "statement_a": { "text": "I find satisfaction in solving complex, difficult puzzles.", "construct": "Need for Cognition" }, "statement_b": { "text": "I prefer to carefully consider all options before making a choice.", "construct": "Deliberative Stance" } },
+            { "item_id": 12, "statement_a": { "text": "I often think about how small changes can impact the entire system.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I find it easy to place my trust in others on a team.", "construct": "General Trust Propensity" } },
+            { "item_id": 13, "statement_a": { "text": "I can function well in situations where the rules are not clearly defined.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "It's critical that business decisions are made with ethical principles in mind.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 14, "statement_a": { "text": "I enjoy taking things apart to understand how they work.", "construct": "Experimental Drive" }, "statement_b": { "text": "I can easily put myself in someone else's shoes.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 15, "statement_a": { "text": "I enjoy the process of discovery, even if it leads to more questions than answers.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I think it's important to recognize the limits of my own understanding.", "construct": "Intellectual Humility" } },
+            { "item_id": 16, "statement_a": { "text": "I make an effort to understand viewpoints that are very different from my own.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I am more interested in how things work together than how they work in isolation.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 17, "statement_a": { "text": "I double-check my reasoning before committing to a final answer.", "construct": "Deliberative Stance" }, "statement_b": { "text": "My default is to believe what people tell me.", "construct": "General Trust Propensity" } },
+            { "item_id": 18, "statement_a": { "text": "I enjoy thinking about abstract or philosophical questions.", "construct": "Need for Cognition" }, "statement_b": { "text": "I'm not bothered by messy problems that lack a clear solution.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 19, "statement_a": { "text": "Doing the right thing is more important to me than being popular.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I have a good sense of my own intellectual blind spots.", "construct": "Intellectual Humility" } },
+            { "item_id": 20, "statement_a": { "text": "I am good at understanding the motivations behind people's actions.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I have a wide range of interests and am curious about many things.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 21, "statement_a": { "text": "I prefer to learn by doing, even if it means I might fail at first.", "construct": "Experimental Drive" }, "statement_b": { "text": "I am more of a reflective person than an impulsive one.", "construct": "Deliberative Stance" } },
+            { "item_id": 22, "statement_a": { "text": "I am willing to cooperate with others, even if it means taking a personal risk.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I am genuinely interested in understanding why people disagree with me.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 23, "statement_a": { "text": "I find it more satisfying to create a comprehensive plan than to jump into execution.", "construct": "Need for Cognition" }, "statement_b": { "text": "I naturally look for how different pieces of a project connect with each other.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 24, "statement_a": { "text": "Unexpected changes to a plan don't typically fluster me.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "Changing my mind based on new evidence is a sign of strength.", "construct": "Intellectual Humility" } },
+            { "item_id": 25, "statement_a": { "text": "I love learning for the sake of learning.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I believe that rules of fairness should apply to everyone equally.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 26, "statement_a": { "text": "I'm often the person others come to for emotional support or advice.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I am deliberate in my decision-making process.", "construct": "Deliberative Stance" } },
+            { "item_id": 27, "statement_a": { "text": "I would rather consider an opposing argument than ignore it.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I truly enjoy a task that involves a lot of mental effort.", "construct": "Need for Cognition" } },
+            { "item_id": 28, "statement_a": { "text": "I'd rather build a quick prototype than spend a long time on a theoretical design.", "construct": "Experimental Drive" }, "statement_b": { "text": "To solve a problem, I first try to understand its context and relationships.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 29, "statement_a": { "text": "I assume that my coworkers are competent and reliable.", "construct": "General Trust Propensity" }, "statement_b": { "text": "If I hear a new term, I'll often look it up immediately.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 30, "statement_a": { "text": "I'm comfortable saying 'I don't know' in a professional setting.", "construct": "Intellectual Humility" }, "statement_b": { "text": "My gut feelings are something I check with logic, not something I blindly follow.", "construct": "Deliberative Stance" } },
+            { "item_id": 31, "statement_a": { "text": "I hold my ethical standards regardless of what others are doing.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I find it easy to change my position on an issue when presented with a good argument.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 32, "statement_a": { "text": "I thrive in fast-paced environments where things are constantly changing.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "I am sensitive to the emotional needs of my colleagues.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 33, "statement_a": { "text": "I get more satisfaction from a challenging mental task than an easy one.", "construct": "Need for Cognition" }, "statement_b": { "text": "My default way to learn is by tinkering and testing.", "construct": "Experimental Drive" } },
+            { "item_id": 34, "statement_a": { "text": "I enjoy mapping out complex processes to see how everything fits together.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I am aware that my own knowledge is limited and incomplete.", "construct": "Intellectual Humility" } },
+            { "item_id": 35, "statement_a": { "text": "I would rather reflect on a problem for a while than give an immediate answer.", "construct": "Deliberative Stance" }, "statement_b": { "text": "Unraveling a complex subject is a very rewarding experience for me.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 36, "statement_a": { "text": "I prefer to rely on the goodwill of others rather than being suspicious.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I don't mind when a project's goals are unclear at the beginning.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 37, "statement_a": { "text": "I'm good at mediating disagreements between people.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I think it is important to expose myself to opinions I disagree with.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 38, "statement_a": { "text": "I believe that consistent, fair principles should guide all decisions.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "When planning, I think about the ripple effects of a decision.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 39, "statement_a": { "text": "I like to experiment with different approaches to find the best one.", "construct": "Experimental Drive" }, "statement_b": { "text": "I can listen to criticism about my ideas without getting defensive.", "construct": "Intellectual Humility" } },
+            { "item_id": 40, "statement_a": { "text": "I find it easy to connect with people from different backgrounds.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "My primary goal is to ensure a decision is logical and well-reasoned, even if I have to rethink my initial stance.", "construct": "Deliberative Stance" } }
+        ];
+
+        const psychometricFramework = {
+            constructs: {
+                "Need for Cognition": { weight: 1.0 }, "Actively Open-Minded Thinking": { weight: 1.0 }, "Epistemic Curiosity": { weight: 1.0 }, "Tolerance for Ambiguity": { weight: 1.0 }, "Intellectual Humility": { weight: 1.0 }, "Trait Emotional Intelligence": { weight: 1.0 },
+                "Holistic Thinking Preference": { weight: 0.6 }, "Experimental Drive": { weight: 0.6 }, "Deliberative Stance": { weight: 0.6 }, "Principled Ethics Orientation": { weight: 0.6 }, "General Trust Propensity": { weight: 0.6 }
+            },
+            archetypes: {
+                "The Critical Interrogator": ["Need for Cognition", "Actively Open-Minded Thinking", "Intellectual Humility", "Deliberative Stance", "Principled Ethics Orientation"],
+                "The Human-Centric Strategist": ["Trait Emotional Intelligence", "Intellectual Humility", "General Trust Propensity", "Holistic Thinking Preference"],
+                "The Curious Experimenter": ["Epistemic Curiosity", "Tolerance for Ambiguity", "Experimental Drive"]
+            }
+        };
+
+        const reportContent = {
+            "The Critical Interrogator": { description: "This individual is a rigorous, analytical thinker driven to find the most accurate answer. They are defined by their propensity to challenge assumptions—both their own and the AI's.", strengths: ["Excels at identifying flaws in AI outputs", "Combating confirmation bias", "Ensuring analytical integrity", "Navigating ethical complexities with a principled approach"] },
+            "The Human-Centric Strategist": { description: "This individual excels at bridging the gap between computational insights and real-world human systems. They are defined by their ability to build trust, communicate effectively, and translate data into wise, contextualized action.", strengths: ["Excels at stakeholder management", "Communicating high-stakes information with empathy", "Fostering collaboration", "Anticipating the broader organizational impact of AI-driven decisions"] },
+            "The Curious Experimenter": { description: "This individual is a natural explorer and hands-on learner, motivated by a drive to understand how complex systems work. They are defined by their comfort with uncertainty and their proactive, experimental approach to developing technical fluency.", strengths: ["Excels at rapidly learning new AI tools", "Discovering novel applications", "Troubleshooting opaque systems through trial-and-error", "Maintaining effectiveness in ambiguous, fast-changing environments"] }
+        };
+        
+        // --- APPLICATION STATE & DOM ELEMENTS ---
+        let currentQuestionIndex = 0, userAnswers = [];
+        const startScreen = document.getElementById('start-screen'), questionScreen = document.getElementById('question-screen'), reportScreen = document.getElementById('report-screen');
+        const startBtn = document.getElementById('start-btn'), choiceABtn = document.getElementById('choice-a-btn'), choiceBBtn = document.getElementById('choice-b-btn');
+        const questionCounter = document.getElementById('question-counter'), progressBarFill = document.getElementById('progress-bar-fill');
+        const interpretationText = document.getElementById('interpretation-text'), primaryArchetypeDetails = document.getElementById('primary-archetype-details'), traitsBreakdown = document.getElementById('traits-breakdown');
+
+        function startTest() {
+            startScreen.classList.add('hidden'); reportScreen.classList.add('hidden'); questionScreen.classList.remove('hidden');
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            const question = questions[currentQuestionIndex];
+            questionCounter.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            choiceABtn.textContent = question.statement_a.text;
+            choiceBBtn.textContent = question.statement_b.text;
+            progressBarFill.style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
+        }
+
+        function selectAnswer(choice) {
+            const question = questions[currentQuestionIndex];
+            userAnswers.push((choice === 'a') ? question.statement_a.construct : question.statement_b.construct);
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) displayQuestion();
+            else {
+                progressBarFill.style.width = `100%`;
+                calculateAndShowReport();
+            }
+        }
+
+        function calculateAndShowReport() {
+            const rawScores = Object.keys(psychometricFramework.constructs).reduce((acc, key) => ({...acc, [key]: 0 }), {});
+            userAnswers.forEach(answer => { rawScores[answer]++; });
+
+            const weightedScores = {};
+            for (const construct in rawScores) {
+                weightedScores[construct] = rawScores[construct] * psychometricFramework.constructs[construct].weight;
+            }
+
+            const archetypeScores = {};
+            const archetypeOrder = ["The Critical Interrogator", "The Human-Centric Strategist", "The Curious Experimenter"];
+            archetypeOrder.forEach(archetype => {
+                let totalScore = 0;
+                psychometricFramework.archetypes[archetype].forEach(construct => {
+                    totalScore += weightedScores[construct];
+                });
+                archetypeScores[archetype] = totalScore;
+            });
+            
+            const sortedArchetypes = Object.entries(archetypeScores).sort((a, b) => b[1] - a[1]);
+            
+            renderReport(archetypeScores, sortedArchetypes, weightedScores);
+            questionScreen.classList.add('hidden');
+            reportScreen.classList.remove('hidden');
+        }
+
+        function renderReport(archetypeScores, sortedArchetypes, weightedScores) {
+            // Generate Nuanced Interpretation
+            const [primary, secondary, tertiary] = sortedArchetypes;
+            let interpretation = '';
+            if (primary[1] > secondary[1] * 1.5) { // Dominant Profile
+                interpretation = `Your results show a strong and clear preference for the <strong>${primary[0]}</strong>. This suggests your natural approach is highly specialized, leaning heavily on its associated strengths. While you possess skills in the other areas, your dominant tendency is to lead with this style.`;
+            } else if (secondary[1] > tertiary[1] * 1.5) { // Dual-Specialization
+                interpretation = `Your profile highlights a powerful blend of the <strong>${primary[0]}</strong> and <strong>${secondary[0]}</strong> archetypes. This is a potent hybrid, suggesting you can effectively combine the strengths of both, adapting to be either more analytical or more people-focused as the situation demands.`;
+            } else { // Balanced Profile
+                interpretation = `Your profile indicates a remarkable balance across all three archetypes. This suggests you are a highly versatile individual, capable of adapting your style to the situation. You can analyze deeply, connect with people, and experiment with new tools with near-equal facility.`;
+            }
+            interpretationText.innerHTML = interpretation;
+
+            // Display Primary Archetype Details
+            const primaryContent = reportContent[primary[0]];
+            primaryArchetypeDetails.innerHTML = `
+                <h4>Your Primary Archetype: ${primary[0]}</h4>
+                <p>${primaryContent.description}</p>
+                <ul>${primaryContent.strengths.map(s => `<li>${s}</li>`).join('')}</ul>
+            `;
+            
+            // Display Traits Breakdown
+            traitsBreakdown.innerHTML = Object.entries(weightedScores)
+                .sort((a,b) => b[1] - a[1]) // Sort by score
+                .map(([name, score]) => `<div class="trait-item"><span class="trait-name">${name}</span> <span class="trait-score">${score.toFixed(1)}</span></div>`)
+                .join('');
+            
+            // Draw Chart
+            drawRadarChart(archetypeScores);
+        }
+        
+        function drawRadarChart(scores) {
+            const canvas = document.getElementById('archetype-chart');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('archetype-chart-container');
+            
+            // Set canvas size based on container to make it responsive
+            const size = container.clientWidth;
+            canvas.width = size;
+            canvas.height = size;
+
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size * 0.35;
+            const angleStep = (Math.PI * 2) / 3;
+            const maxScore = 20; // A reasonable maximum for visualization purposes
+
+            // The three points of the triangle
+            const points = [
+                { x: centerX, y: centerY - radius }, // Top (Interrogator)
+                { x: centerX + radius * Math.cos(Math.PI / 6), y: centerY + radius * Math.sin(Math.PI / 6) }, // Bottom-right (Strategist)
+                { x: centerX - radius * Math.cos(Math.PI / 6), y: centerY + radius * Math.sin(Math.PI / 6) }, // Bottom-left (Experimenter)
+            ];
+            
+            // Draw grid lines (concentric triangles)
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            [0.25, 0.5, 0.75, 1].forEach(scale => {
+                ctx.beginPath();
+                ctx.moveTo(centerX + (points[0].x - centerX) * scale, centerY + (points[0].y - centerY) * scale);
+                for(let i = 1; i < 3; i++) {
+                    ctx.lineTo(centerX + (points[i].x - centerX) * scale, centerY + (points[i].y - centerY) * scale);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            });
+
+            // Draw axis lines
+            points.forEach(p => {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+            });
+
+            // Draw labels
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Critical Interrogator', points[0].x, points[0].y - 10);
+            ctx.textAlign = 'right';
+            ctx.fillText('Human-Centric', points[1].x + 5, points[1].y + 5);
+            ctx.fillText('Strategist', points[1].x + 5, points[1].y + 20);
+            ctx.textAlign = 'left';
+            ctx.fillText('Curious', points[2].x - 5, points[2].y + 5);
+            ctx.fillText('Experimenter', points[2].x - 5, points[2].y + 20);
+
+
+            // Draw the user's score shape
+            const scorePoints = [
+                scores['The Critical Interrogator'],
+                scores['The Human-Centric Strategist'],
+                scores['The Curious Experimenter']
+            ].map((score, i) => {
+                const ratio = Math.min(score, maxScore) / maxScore;
+                return {
+                    x: centerX + (points[i].x - centerX) * ratio,
+                    y: centerY + (points[i].y - centerY) * ratio
+                };
+            });
+            
+            ctx.beginPath();
+            ctx.moveTo(scorePoints[0].x, scorePoints[0].y);
+            scorePoints.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.closePath();
+            
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--chart-fill-color').trim();
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--chart-stroke-color').trim();
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+        }
+
+
+        // --- EVENT LISTENERS ---
+        startBtn.addEventListener('click', startTest);
+        choiceABtn.addEventListener('click', () => selectAnswer('a'));
+        choiceBBtn.addEventListener('click', () => selectAnswer('b'));
+        // Re-draw chart on window resize to keep it sharp
+        window.addEventListener('resize', () => {
+            if (!reportScreen.classList.contains('hidden')) {
+                calculateAndShowReport(); // This is a simple way to trigger a re-render
+            }
+        });
+
+        // Initialize with dummy data for easy testing of the report screen
+        // To use, uncomment the following line and comment out the startBtn listener
+        // document.addEventListener('DOMContentLoaded', () => { startScreen.classList.add('hidden'); calculateAndShowReport(); userAnswers = ["Need for Cognition","Principled Ethics Orientation","Tolerance for Ambiguity","Actively Open-Minded Thinking","Deliberative Stance","Need for Cognition","Intellectual Humility","General Trust Propensity","Actively Open-Minded Thinking","Epistemic Curiosity","Need for Cognition","Holistic Thinking Preference","Tolerance for Ambiguity","Trait Emotional Intelligence","Intellectual Humility","Actively Open-Minded Thinking","Deliberative Stance","Need for Cognition","Principled Ethics Orientation","Trait Emotional Intelligence","Deliberative Stance","Actively Open-Minded Thinking","Need for Cognition","Intellectual Humility","Epistemic Curiosity","Trait Emotional Intelligence","Actively Open-Minded Thinking","Holistic Thinking Preference","General Trust Propensity","Intellectual Humility","Principled Ethics Orientation","Tolerance for Ambiguity","Need for Cognition","Holistic Thinking Preference","Deliberative Stance","General Trust Propensity","Trait Emotional Intelligence","Principled Ethics Orientation","Intellectual Humility","Deliberative Stance"]});
+
+    </script>
+</body>
+</html>

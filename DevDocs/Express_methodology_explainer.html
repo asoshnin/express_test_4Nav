@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Navigator Express Profiler: Methodology Explorer</title>
+    <!-- Chosen Palette: Calm Neutral -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard with a fixed sidebar for navigation and a main content area. This structure allows users to explore the methodology non-linearly. The key sections are: 1) An introduction, 2) An interactive grid of the 11 psychological constructs, 3) A visual flowchart of the scoring algorithm, 4) A breakdown of the three final archetypes, and 5) A dynamic simulator. This structure was chosen to deconstruct the dense report into digestible, interactive modules. The simulator is the core engagement feature, turning abstract scoring rules into a tangible, explorable system, which is the most effective way to help a user understand the methodology's inner workings. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: 11 Psychological Constructs -> Goal: Organize & Inform -> Viz/Method: Interactive Card Grid (HTML/CSS/JS) -> Interaction: Click/Tap to reveal details -> Justification: More engaging than a static list; allows focused exploration.
+        - Report Info: 4-Step Scoring Algorithm -> Goal: Explain a Process -> Viz/Method: Visual Flowchart (HTML/Tailwind) -> Interaction: Static view -> Justification: Clearly visualizes the sequence of calculations, making the abstract logic concrete and easy to follow.
+        - Report Info: 3 Navigator Archetypes -> Goal: Compare & Inform -> Viz/Method: 3-Column Card Layout (HTML/Tailwind) -> Interaction: Static view -> Justification: Provides an easy-to-scan comparison of the final profiles.
+        - Report Info: Scoring Formulas -> Goal: Demonstrate Relationships -> Viz/Method: Dynamic Radar Chart (Chart.js) & Sliders (HTML) -> Interaction: User adjusts sliders to change construct scores, chart and results update in real-time -> Justification: The most effective way to demonstrate the core logic. It allows users to build an intuitive understanding of how different traits combine to influence the final archetype, making the methodology come alive.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-link.active {
+            background-color: #0891b2; /* cyan-600 */
+            color: white;
+            font-weight: 600;
+        }
+        .construct-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .construct-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Custom slider styles */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0; /* slate-200 */
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type=range]:hover {
+            opacity: 1;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #0e7490; /* cyan-700 */
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #0e7490; /* cyan-700 */
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        /* Assessment specific styles */
+        .assessment-option {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .assessment-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .assessment-option.selected {
+            border-color: #0891b2;
+            background-color: #ecfeff;
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #0891b2 0%, #06b6d4 100%);
+            transition: width 0.3s ease;
+        }
+        .loading-spinner {
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #0891b2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Prose styling for comprehensive reports */
+        .prose {
+            color: #374151;
+            max-width: 65ch;
+            margin: 0 auto;
+        }
+        .prose h1 {
+            color: #111827;
+            font-weight: 800;
+            font-size: 2.25em;
+            margin-top: 0;
+            margin-bottom: 0.8888889em;
+            line-height: 1.1111111;
+        }
+        .prose h2 {
+            color: #111827;
+            font-weight: 700;
+            font-size: 1.5em;
+            margin-top: 2em;
+            margin-bottom: 1em;
+            line-height: 1.3333333;
+        }
+        .prose h3 {
+            color: #111827;
+            font-weight: 600;
+            font-size: 1.25em;
+            margin-top: 1.6em;
+            margin-bottom: 0.6em;
+            line-height: 1.6;
+        }
+        .prose h4 {
+            color: #111827;
+            font-weight: 600;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            line-height: 1.5;
+        }
+        .prose p {
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+        }
+        .prose ul {
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+            padding-left: 1.625em;
+        }
+        .prose ol {
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+            padding-left: 1.625em;
+        }
+        .prose li {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+        .prose blockquote {
+            font-weight: 500;
+            font-style: italic;
+            color: #111827;
+            border-left-width: 0.25rem;
+            border-left-color: #e5e7eb;
+            quotes: "\201C""\201D""\2018""\2019";
+            margin-top: 1.6em;
+            margin-bottom: 1.6em;
+            padding-left: 1em;
+        }
+        .prose strong {
+            color: #111827;
+            font-weight: 600;
+        }
+        .prose code {
+            color: #111827;
+            font-weight: 600;
+            font-size: 0.875em;
+        }
+        .prose pre {
+            color: #e5e7eb;
+            background-color: #1f2937;
+            overflow-x: auto;
+            font-size: 0.875em;
+            line-height: 1.7142857;
+            margin-top: 1.7142857em;
+            margin-bottom: 1.7142857em;
+            border-radius: 0.375rem;
+            padding-top: 0.8571429em;
+            padding-right: 1.1428571em;
+            padding-bottom: 0.8571429em;
+            padding-left: 1.1428571em;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-white shadow-md hidden md:block">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-cyan-700">Methodology Explorer</h1>
+            </div>
+            <nav class="mt-6">
+                <a href="#introduction" class="nav-link active block py-3 px-6 text-slate-600 hover:bg-cyan-50">Introduction</a>
+                <a href="#constructs" class="nav-link block py-3 px-6 text-slate-600 hover:bg-cyan-50">The Constructs</a>
+                <a href="#how-it-works" class="nav-link block py-3 px-6 text-slate-600 hover:bg-cyan-50">How It Works</a>
+                <a href="#archetypes" class="nav-link block py-3 px-6 text-slate-600 hover:bg-cyan-50">The Archetypes</a>
+                <a href="#simulator" class="nav-link block py-3 px-6 text-slate-600 hover:bg-cyan-50">Interactive Simulator</a>
+                <a href="#assessment" class="nav-link block py-3 px-6 text-slate-600 hover:bg-cyan-50">Find Your Profile</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 md:p-10">
+            <!-- Mobile Navigation -->
+            <div class="md:hidden mb-6">
+                <select id="mobile-nav" class="w-full p-3 border rounded-lg bg-white shadow" aria-label="Navigation menu">
+                    <option value="#introduction">Introduction</option>
+                    <option value="#constructs">The Constructs</option>
+                    <option value="#how-it-works">How It Works</option>
+                    <option value="#archetypes">The Archetypes</option>
+                    <option value="#simulator">Interactive Simulator</option>
+                    <option value="#assessment">Find Your Profile</option>
+                </select>
+            </div>
+
+            <section id="introduction" class="content-section">
+                <h2 class="text-3xl font-bold mb-4">Introduction & Purpose</h2>
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-4 text-slate-700">
+                    <p>This interactive guide explores the methodology for the <strong>AI Navigator Express Profiler</strong>, an online psychometric instrument designed for the rapid screening of candidates for AI Navigator roles. The profiler's purpose is to measure the underlying psychological dispositions that indicate a candidate's innate potential to excel at collaborating with, critically challenging, and translating the outputs of artificial intelligence systems.</p>
+                    <p>It is designed as a scalable, efficient, and insightful first-pass assessment to identify high-potential individuals for more in-depth evaluation. The core philosophy is to measure stable personality preferences and cognitive styles rather than perishable technical skills. It uses a forced-choice format to mitigate common survey biases and reveal a candidate's authentic motivational hierarchy.</p>
+                </div>
+            </section>
+
+            <section id="constructs" class="content-section hidden mt-12">
+                <h2 class="text-3xl font-bold mb-4">The Psychometric Framework</h2>
+                 <p class="mb-6 text-slate-600">The profiler assesses eleven psychological constructs. These are divided into two categories based on the directness of their measurement. Click on any card to learn more about the construct.</p>
+                <div id="constructs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Cards will be injected by JavaScript -->
+                </div>
+            </section>
+
+            <section id="how-it-works" class="content-section hidden mt-12">
+                <h2 class="text-3xl font-bold mb-4">How It Works: Assessment & Scoring</h2>
+                <p class="mb-8 text-slate-600">The profiler is implemented as a simple, web-based tool with 40 forced-choice questions. A candidate's choices are processed through a three-step algorithm to determine their primary Navigator Archetype.</p>
+                <div class="space-y-8">
+                    <!-- Step 1 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm flex items-center">
+                        <div class="bg-cyan-600 text-white rounded-full h-12 w-12 flex items-center justify-center font-bold text-xl mr-6">1</div>
+                        <div>
+                            <h3 class="text-xl font-semibold">Raw Score Calculation</h3>
+                            <p class="text-slate-600">For each of the 11 constructs, we count the number of times the candidate chose a statement corresponding to that construct. All constructs are treated equally with no weighting applied.</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <span class="text-2xl text-cyan-500">↓</span>
+                    </div>
+                    <!-- Step 2 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm flex items-center">
+                        <div class="bg-cyan-600 text-white rounded-full h-12 w-12 flex items-center justify-center font-bold text-xl mr-6">2</div>
+                        <div>
+                            <h3 class="text-xl font-semibold">Archetype Score Calculation</h3>
+                            <p class="text-slate-600">The 11 raw scores are aggregated into three distinct AI Navigator Archetype scores using specific formulas:</p>
+                                                         <ul class="list-disc list-inside text-slate-600 mt-2 space-y-3">
+                                 <li>
+                                     <strong class="text-cyan-700">Critical Interrogator:</strong> NFC + AOT + EC + IH + DS
+                                     <div class="ml-6 mt-1 text-sm">
+                                         <span class="text-cyan-600">Need for Cognition</span>, 
+                                         <span class="text-cyan-600">Actively Open-Minded Thinking</span>, 
+                                         <span class="text-cyan-600">Epistemic Curiosity</span>, 
+                                         <span class="text-cyan-600">Intellectual Humility</span>, 
+                                         <span class="text-cyan-600">Deliberative Stance</span>
+                                     </div>
+                                 </li>
+                                 <li>
+                                     <strong class="text-teal-600">Human-Centric Strategist:</strong> Trait EI + HTP + PEO + GTP
+                                     <div class="ml-6 mt-1 text-sm">
+                                         <span class="text-teal-600">Trait Emotional Intelligence</span>, 
+                                         <span class="text-teal-600">Holistic Thinking Preference</span>, 
+                                         <span class="text-teal-600">Principled Ethics Orientation</span>, 
+                                         <span class="text-teal-600">General Trust Propensity</span>
+                                     </div>
+                                 </li>
+                                 <li>
+                                     <strong class="text-amber-600">Curious Experimenter:</strong> TOA + ED + EC + AOT
+                                     <div class="ml-6 mt-1 text-sm">
+                                         <span class="text-amber-600">Tolerance for Ambiguity</span>, 
+                                         <span class="text-amber-600">Experimental Drive</span>, 
+                                         <span class="text-amber-600">Epistemic Curiosity</span>, 
+                                         <span class="text-amber-600">Actively Open-Minded Thinking</span>
+                                     </div>
+                                 </li>
+                             </ul>
+                        </div>
+                    </div>
+                     <div class="flex justify-center">
+                        <span class="text-2xl text-cyan-500">↓</span>
+                    </div>
+                    <!-- Step 3 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm flex items-center">
+                        <div class="bg-cyan-600 text-white rounded-full h-12 w-12 flex items-center justify-center font-bold text-xl mr-6">3</div>
+                        <div>
+                            <h3 class="text-xl font-semibold">Final Profile Determination</h3>
+                            <p class="text-slate-600">The candidate's primary AI Navigator Style is determined by identifying the archetype with the highest total score.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="archetypes" class="content-section hidden mt-12">
+                <h2 class="text-3xl font-bold mb-4">The Three Navigator Archetypes</h2>
+                 <p class="mb-6 text-slate-600">The final output of the assessment is a primary profile that describes a candidate's natural strengths and inclinations as an AI Navigator.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Archetype 1 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-cyan-700">
+                        <h3 class="text-2xl font-semibold mb-3">The Critical Interrogator</h3>
+                        <p class="text-slate-600 mb-4">This individual is a rigorous, analytical thinker driven to find the most accurate answer. They are defined by their propensity to challenge assumptions—both their own and the AI's.</p>
+                        <h4 class="font-semibold mb-2">Signature Strengths:</h4>
+                        <ul class="list-disc list-inside text-slate-600 space-y-1">
+                            <li>Identifying flaws in AI outputs</li>
+                            <li>Combating confirmation bias</li>
+                            <li>Ensuring analytical integrity</li>
+                            <li>Navigating ethical complexities</li>
+                        </ul>
+                    </div>
+                    <!-- Archetype 2 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-teal-500">
+                        <h3 class="text-2xl font-semibold mb-3">The Human-Centric Strategist</h3>
+                        <p class="text-slate-600 mb-4">This individual excels at bridging the gap between computational insights and real-world human systems. They are defined by their ability to build trust, communicate effectively, and translate data into wise, contextualized action.</p>
+                        <h4 class="font-semibold mb-2">Signature Strengths:</h4>
+                        <ul class="list-disc list-inside text-slate-600 space-y-1">
+                            <li>Stakeholder management</li>
+                            <li>Communicating high-stakes information</li>
+                            <li>Fostering collaboration</li>
+                            <li>Anticipating organizational impact</li>
+                        </ul>
+                    </div>
+                    <!-- Archetype 3 -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-amber-500">
+                        <h3 class="text-2xl font-semibold mb-3">The Curious Experimenter</h3>
+                        <p class="text-slate-600 mb-4">This individual is a natural explorer and hands-on learner, motivated by a drive to understand how complex systems work. They are defined by their comfort with uncertainty and their proactive, experimental approach.</p>
+                        <h4 class="font-semibold mb-2">Signature Strengths:</h4>
+                        <ul class="list-disc list-inside text-slate-600 space-y-1">
+                            <li>Rapidly learning new AI tools</li>
+                            <li>Discovering novel applications</li>
+                            <li>Troubleshooting opaque systems</li>
+                            <li>Maintaining effectiveness in ambiguity</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="simulator" class="content-section hidden mt-12">
+                <h2 class="text-3xl font-bold mb-4">Interactive Scoring Simulator</h2>
+                <p class="mb-6 text-slate-600">Use the sliders below to simulate a candidate's raw scores for each of the 11 constructs. Observe how changing the inputs affects the final archetype scores and the resulting primary profile in real-time. This demonstrates the dynamic relationships within the scoring model.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Sliders -->
+                    <div id="sliders-container" class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                        <!-- Sliders will be injected here -->
+                    </div>
+                    <!-- Results & Chart -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <h3 class="text-xl font-semibold mb-4 text-center">Archetype Profile</h3>
+                        <div class="chart-container">
+                            <canvas id="archetypeChart"></canvas>
+                        </div>
+                        <div class="mt-6 text-center">
+                             <p class="text-lg">Primary Profile:</p>
+                             <p id="primary-profile" class="text-2xl font-bold text-cyan-700">Calculating...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assessment Section -->
+            <section id="assessment" class="content-section hidden mt-12">
+                <h2 class="text-3xl font-bold mb-4">Find Your Profile</h2>
+                <p class="mb-6 text-slate-600">Take the AI Navigator Express Profiler assessment to discover your natural strengths and inclinations as an AI Navigator. This 40-question assessment will help you understand your primary archetype.</p>
+                
+                <!-- Assessment Container -->
+                <div id="assessment-container" class="bg-white p-6 rounded-lg shadow-sm">
+                    <!-- Start Assessment View -->
+                    <div id="start-assessment-view" class="text-center">
+                        <div class="mb-6">
+                            <svg class="w-16 h-16 text-cyan-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <h3 class="text-2xl font-semibold text-slate-800 mb-2">Ready to Discover Your Profile?</h3>
+                            <p class="text-slate-600">This assessment will take approximately 10-15 minutes to complete.</p>
+                        </div>
+                        <button id="start-assessment-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200">
+                            Start Assessment
+                        </button>
+                        <div class="mt-4">
+                            <button id="simulate-assessment-btn" class="bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 text-sm">
+                                Simulate Assessment
+                            </button>
+                            <p class="text-xs text-slate-500 mt-2">For testing purposes - skips to results with sample data</p>
+                        </div>
+                    </div>
+
+                    <!-- Assessment Progress View -->
+                    <div id="assessment-progress-view" class="hidden">
+                        <!-- Progress Bar -->
+                        <div class="mb-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-slate-700">Progress</span>
+                                <span id="progress-text" class="text-sm text-slate-600">0 of 40</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2">
+                                <div id="progress-bar" class="progress-bar h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Question Display -->
+                        <div id="question-container" class="mb-6">
+                            <!-- Question content will be injected here -->
+                        </div>
+
+                        <!-- Assessment Tips -->
+                        <div class="bg-cyan-50 border border-cyan-200 rounded-lg p-4">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 mt-0.5">
+                                    <svg class="w-5 h-5 text-cyan-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-cyan-800 mb-1">Assessment Tips</h4>
+                                    <ul class="text-cyan-700 text-sm space-y-1">
+                                        <li>• Choose the option that feels most natural to you</li>
+                                        <li>• Don't overthink - go with your first instinct</li>
+                                        <li>• There are no right or wrong answers</li>
+                                        <li>• You can take breaks and return later</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading View -->
+                    <div id="loading-view" class="hidden text-center">
+                        <div class="loading-spinner w-8 h-8 mx-auto mb-4"></div>
+                        <p class="text-slate-600">Loading your assessment...</p>
+                    </div>
+
+                    <!-- Error View -->
+                    <div id="error-view" class="hidden text-center">
+                        <div class="text-red-600 mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2">Something went wrong</h3>
+                        <p id="error-message" class="text-slate-600 mb-6"></p>
+                        <button id="retry-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200">
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Global variables and functions for assessment functionality
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let currentSession = null;
+        let selectedOption = null;
+        let isComprehensiveReportView = false;
+
+        // Global function for restart assessment button
+        function handleRestartAssessment() {
+            try {
+                console.log('handleRestartAssessment called');
+                isComprehensiveReportView = false;
+                
+                // Use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    // First, make sure the assessment section is visible
+                    const assessmentSection = document.getElementById('assessment');
+                    console.log('Assessment section found:', assessmentSection);
+                    if (assessmentSection) {
+                        assessmentSection.classList.remove('hidden');
+                        console.log('Assessment section made visible');
+                    }
+                    
+                    // Reset the assessment state
+                    resetAssessment();
+                    console.log('handleRestartAssessment completed');
+                }, 100); // Small delay to ensure DOM is ready
+            } catch (error) {
+                console.error('Error in handleRestartAssessment:', error);
+                // Fallback: try to show the start assessment view directly
+                try {
+                    const assessmentSection = document.getElementById('assessment');
+                    if (assessmentSection) {
+                        assessmentSection.classList.remove('hidden');
+                    }
+                    const startView = document.getElementById('start-assessment-view');
+                    if (startView) {
+                        startView.classList.remove('hidden');
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback also failed:', fallbackError);
+                }
+            }
+        }
+
+        // Global function to reset assessment state
+        function resetAssessment() {
+            console.log('resetAssessment called');
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            currentSession = null;
+            selectedOption = null;
+            
+            // Clear any URL parameters
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            
+            // Reset the comprehensive report view flag
+            isComprehensiveReportView = false;
+            
+            // Recreate the original assessment container structure
+            const container = document.getElementById('assessment-container');
+            if (container) {
+                container.innerHTML = `
+                    <!-- Start Assessment View -->
+                    <div id="start-assessment-view" class="text-center">
+                        <div class="mb-6">
+                            <svg class="w-16 h-16 text-cyan-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <h3 class="text-2xl font-semibold text-slate-800 mb-2">Ready to Discover Your Profile?</h3>
+                            <p class="text-slate-600">This assessment will take approximately 10-15 minutes to complete.</p>
+                        </div>
+                        <button id="start-assessment-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200">
+                            Start Assessment
+                        </button>
+                        <div class="mt-4">
+                            <button id="simulate-assessment-btn" class="bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200 text-sm">
+                                Simulate Assessment
+                            </button>
+                            <p class="text-xs text-slate-500 mt-2">For testing purposes - skips to results with sample data</p>
+                        </div>
+                    </div>
+
+                    <!-- Assessment Progress View -->
+                    <div id="assessment-progress-view" class="hidden">
+                        <!-- Progress Bar -->
+                        <div class="mb-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-slate-700">Progress</span>
+                                <span id="progress-text" class="text-sm text-slate-600">0 of 40</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2">
+                                <div id="progress-bar" class="progress-bar h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Question Display -->
+                        <div id="question-container" class="mb-6">
+                            <!-- Question content will be injected here -->
+                        </div>
+
+                        <!-- Assessment Tips -->
+                        <div class="bg-cyan-50 border border-cyan-200 rounded-lg p-4">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 mt-0.5">
+                                    <svg class="w-5 h-5 text-cyan-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-cyan-800 mb-1">Assessment Tips</h4>
+                                    <ul class="text-cyan-700 text-sm space-y-1">
+                                        <li>• Choose the option that feels most natural to you</li>
+                                        <li>• Don't overthink - go with your first instinct</li>
+                                        <li>• There are no right or wrong answers</li>
+                                        <li>• You can take breaks and return later</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading View -->
+                    <div id="loading-view" class="hidden text-center">
+                        <div class="loading-spinner w-8 h-8 mx-auto mb-4"></div>
+                        <p class="text-slate-600">Loading your assessment...</p>
+                    </div>
+
+                    <!-- Error View -->
+                    <div id="error-view" class="hidden text-center">
+                        <div class="text-red-600 mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2">Something went wrong</h3>
+                        <p id="error-message" class="text-slate-600 mb-6"></p>
+                        <button id="retry-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+                
+                // Re-add event listeners for the recreated buttons
+                document.getElementById('start-assessment-btn').addEventListener('click', () => {
+                    startAssessment();
+                });
+
+                document.getElementById('simulate-assessment-btn').addEventListener('click', () => {
+                    simulateAssessment();
+                });
+            }
+            
+            // Show the assessment section and start view
+            try {
+                console.log('Calling showSection with #assessment');
+                showSection('#assessment');
+                console.log('Calling showView with start-assessment-view');
+                showView('start-assessment-view');
+                
+                // Additional debugging
+                const assessmentSection = document.getElementById('assessment');
+                const startView = document.getElementById('start-assessment-view');
+                console.log('Assessment section after showSection:', assessmentSection);
+                console.log('Start view after showView:', startView);
+                console.log('Assessment section hidden class:', assessmentSection?.classList.contains('hidden'));
+                console.log('Start view hidden class:', startView?.classList.contains('hidden'));
+            } catch (error) {
+                console.error('Error in resetAssessment navigation:', error);
+                // Fallback: try to show assessment section directly
+                const assessmentSection = document.getElementById('assessment');
+                if (assessmentSection) {
+                    assessmentSection.classList.remove('hidden');
+                }
+            }
+            console.log('resetAssessment completed');
+        }
+
+        // Global function to show sections
+        function showSection(hash) {
+            console.log('showSection called with:', hash);
+            // Reset comprehensive report view flag when navigating to other sections
+            if (isComprehensiveReportView && hash !== '#assessment') {
+                isComprehensiveReportView = false;
+            }
+            
+            const contentSections = document.querySelectorAll('.content-section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mobileNav = document.getElementById('mobile-nav');
+            
+            if (contentSections && contentSections.length > 0) {
+                contentSections.forEach(section => {
+                    if (`#${section.id}` === hash) {
+                        section.classList.remove('hidden');
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                });
+            }
+            
+            if (navLinks && navLinks.length > 0) {
+                navLinks.forEach(link => {
+                    if (link.getAttribute('href') === hash) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+            }
+            
+            if (mobileNav) {
+                mobileNav.value = hash;
+            }
+            console.log('showSection completed for:', hash);
+        }
+
+        // Global function to show views
+        function showView(viewId) {
+            console.log('showView called with:', viewId);
+            const views = ['start-assessment-view', 'assessment-progress-view', 'loading-view', 'error-view'];
+            views.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.add('hidden');
+                    console.log(`Hidden view: ${id}`);
+                } else {
+                    console.log(`View not found: ${id}`);
+                }
+            });
+            const targetElement = document.getElementById(viewId);
+            if (targetElement) {
+                targetElement.classList.remove('hidden');
+                console.log(`Showed view: ${viewId}`);
+            } else {
+                console.log(`Target view not found: ${viewId}`);
+                // Try again after a short delay
+                setTimeout(() => {
+                    const retryElement = document.getElementById(viewId);
+                    if (retryElement) {
+                        retryElement.classList.remove('hidden');
+                        console.log(`Showed view on retry: ${viewId}`);
+                    } else {
+                        console.log(`Target view still not found on retry: ${viewId}`);
+                    }
+                }, 50);
+            }
+            console.log('showView completed for:', viewId);
+        }
+
+        // Global API function
+        async function apiCall(endpoint, options = {}) {
+            const baseUrl = 'http://localhost:8080';
+            const url = `${baseUrl}${endpoint}`;
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            try {
+                console.log('Making API call to:', url, 'with options:', options);
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                // Handle 204 No Content responses
+                if (response.status === 204) {
+                    return null;
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Global assessment functions
+        async function startAssessment() {
+            try {
+                // Get LLM-generated nickname
+                const session = await apiCall('/assessment', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                currentSession = session;
+                
+                // Start client-side assessment
+                currentQuestionIndex = 0;
+                userAnswers = [];
+                showView('assessment-progress-view');
+                displayQuestion();
+            } catch (error) {
+                console.error('Failed to start assessment:', error);
+                // Fallback to client-side only if API fails
+                currentSession = { sessionId: 'local-' + Date.now(), nickname: 'Explorer' };
+                currentQuestionIndex = 0;
+                userAnswers = [];
+                showView('assessment-progress-view');
+                displayQuestion();
+            }
+        }
+
+        async function simulateAssessment() {
+            try {
+                // Create a simulated session
+                currentSession = { 
+                    sessionId: 'simulated-' + Date.now(), 
+                    nickname: 'TestUser' 
+                };
+                
+                // Use predefined test answers for consistent results
+                userAnswers = [
+                    "Need for Cognition", "Principled Ethics Orientation", "Tolerance for Ambiguity", 
+                    "Actively Open-Minded Thinking", "Deliberative Stance", "Need for Cognition", 
+                    "Intellectual Humility", "General Trust Propensity", "Actively Open-Minded Thinking", 
+                    "Epistemic Curiosity", "Need for Cognition", "Holistic Thinking Preference", 
+                    "Tolerance for Ambiguity", "Trait Emotional Intelligence", "Intellectual Humility", 
+                    "Actively Open-Minded Thinking", "Deliberative Stance", "Need for Cognition", 
+                    "Principled Ethics Orientation", "Trait Emotional Intelligence", "Deliberative Stance", 
+                    "Actively Open-Minded Thinking", "Need for Cognition", "Intellectual Humility", 
+                    "Epistemic Curiosity", "Trait Emotional Intelligence", "Actively Open-Minded Thinking", 
+                    "Holistic Thinking Preference", "General Trust Propensity", "Intellectual Humility", 
+                    "Principled Ethics Orientation", "Tolerance for Ambiguity", "Need for Cognition", 
+                    "Holistic Thinking Preference", "Deliberative Stance", "General Trust Propensity", 
+                    "Trait Emotional Intelligence", "Principled Ethics Orientation", "Intellectual Humility", 
+                    "Deliberative Stance"
+                ];
+                
+                // Skip directly to results
+                currentQuestionIndex = questions.length;
+                showView('loading-view');
+                
+                // Simulate a brief loading delay
+                setTimeout(() => {
+                    calculateAndShowReport();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Failed to simulate assessment:', error);
+                showView('error-view');
+                document.getElementById('error-message').textContent = 'Failed to simulate assessment. Please try again.';
+            }
+        }
+
+        // Global assessment helper functions
+        function displayQuestion() {
+            const question = questions[currentQuestionIndex];
+            updateProgress(currentQuestionIndex + 1, questions.length);
+            
+            const container = document.getElementById('question-container');
+            selectedOption = null;
+            
+            container.innerHTML = `
+                <div class="mb-6 fade-in">
+                    <h3 class="text-xl font-semibold text-slate-900 mb-2">
+                        Choose the statement that best describes you:
+                    </h3>
+                    <p class="text-slate-600">
+                        Select the option that resonates most with your natural tendencies and preferences.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <button
+                        class="assessment-option w-full p-6 text-left rounded-lg border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-200"
+                        data-option="a"
+                    >
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0 mt-1">
+                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-slate-900 font-medium leading-relaxed">
+                                    ${question.statement_a.text}
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+                    <button
+                        class="assessment-option w-full p-6 text-left rounded-lg border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-200"
+                        data-option="b"
+                    >
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0 mt-1">
+                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-slate-900 font-medium leading-relaxed">
+                                    ${question.statement_b.text}
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="mt-8 flex justify-end">
+                    <button
+                        id="continue-btn"
+                        class="bg-slate-300 text-slate-500 font-semibold py-2 px-6 rounded-lg cursor-not-allowed"
+                        disabled
+                    >
+                        Continue
+                    </button>
+                </div>
+            `;
+
+            // Add event listeners
+            const options = container.querySelectorAll('.assessment-option');
+            const continueBtn = document.getElementById('continue-btn');
+            
+            options.forEach(option => {
+                option.addEventListener('click', () => {
+                    // Remove selection from all options
+                    options.forEach(opt => {
+                        opt.classList.remove('selected');
+                        opt.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>';
+                    });
+                    
+                    // Select clicked option
+                    option.classList.add('selected');
+                    option.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="currentColor"></circle>';
+                    
+                    selectedOption = option.dataset.option;
+                    continueBtn.classList.remove('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
+                    continueBtn.classList.add('bg-cyan-600', 'hover:bg-cyan-700', 'text-white');
+                    continueBtn.disabled = false;
+                });
+            });
+
+            continueBtn.addEventListener('click', () => {
+                if (selectedOption) {
+                    handleAnswer(selectedOption);
+                }
+            });
+        }
+
+        function calculateAndShowReport() {
+            // Show loading with progress
+            const loadingView = document.getElementById('loading-view');
+            if (loadingView) {
+                loadingView.innerHTML = `
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto mb-4"></div>
+                        <h3 class="text-xl font-semibold text-slate-800 mb-2">Processing Your Assessment</h3>
+                        <p class="text-slate-600 mb-4">Saving results and generating your comprehensive report...</p>
+                        <div class="w-full bg-slate-200 rounded-full h-2">
+                            <div id="processing-progress" class="bg-cyan-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="processing-status" class="text-sm text-slate-500 mt-2">Initializing...</p>
+                    </div>
+                `;
+            }
+            
+            const rawScores = Object.keys(psychometricFramework.constructs).reduce((acc, key) => ({...acc, [key]: 0 }), {});
+            userAnswers.forEach(answer => { rawScores[answer]++; });
+
+            const weightedScores = {};
+            for (const construct in rawScores) {
+                weightedScores[construct] = rawScores[construct] * psychometricFramework.constructs[construct].weight;
+            }
+
+            const archetypeScores = {};
+            const archetypeOrder = ["The Critical Interrogator", "The Human-Centric Strategist", "The Curious Experimenter"];
+            archetypeOrder.forEach(archetype => {
+                let totalScore = 0;
+                psychometricFramework.archetypes[archetype].forEach(construct => {
+                    totalScore += weightedScores[construct];
+                });
+                archetypeScores[archetype] = totalScore;
+            });
+            
+            const sortedArchetypes = Object.entries(archetypeScores).sort((a, b) => b[1] - a[1]);
+            
+            // Update progress
+            const updateProgress = (percent, status) => {
+                const progressBar = document.getElementById('processing-progress');
+                const statusText = document.getElementById('processing-status');
+                if (progressBar) progressBar.style.width = `${percent}%`;
+                if (statusText) statusText.textContent = status;
+            };
+            
+            // Save answers to backend session first
+            updateProgress(20, 'Saving assessment results...');
+            saveAnswersToBackend()
+                .then(() => {
+                    updateProgress(60, 'Generating comprehensive report...');
+                    // Try LLM report first, fallback to client-side
+                    return generateLLMReport(archetypeScores, sortedArchetypes, weightedScores);
+                })
+                .then(report => {
+                    updateProgress(100, 'Displaying your results...');
+                    setTimeout(() => {
+                        renderReport(report);
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('Failed to get LLM report:', error);
+                    updateProgress(100, 'Using fallback report...');
+                    setTimeout(() => {
+                        const clientReport = generateClientSideReport(archetypeScores, sortedArchetypes, weightedScores);
+                        renderReport(clientReport);
+                    }, 500);
+                });
+        }
+
+        // Additional global assessment functions
+        function handleAnswer(choice) {
+            const question = questions[currentQuestionIndex];
+            const chosenConstruct = (choice === 'a') ? question.statement_a.construct : question.statement_b.construct;
+            userAnswers.push(chosenConstruct);
+            
+            currentQuestionIndex++;
+            
+            if (currentQuestionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                // Assessment complete
+                showView('loading-view');
+                setTimeout(() => {
+                    calculateAndShowReport();
+                }, 500);
+            }
+        }
+
+        function updateProgress(current, total) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const percentage = (current / total) * 100;
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${current} of ${total}`;
+        }
+
+        // Global data for assessment functionality
+        // Question data (copied from express_test2.html)
+        const questions = [
+            { "item_id": 1, "statement_a": { "text": "I tend to trust new colleagues until I have a reason not to.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I like to analyze a problem from every angle before making a decision.", "construct": "Need for Cognition" } },
+            { "item_id": 2, "statement_a": { "text": "I feel it's important to stick to principles of fairness, even if it makes things difficult.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I am good at sensing what others are feeling, even if they don't say it.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 3, "statement_a": { "text": "My first instinct with a new tool is to start playing with it to see how it works.", "construct": "Experimental Drive" }, "statement_b": { "text": "I am comfortable moving forward on a project even if all the details aren't finalized.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 4, "statement_a": { "text": "I readily accept that my own beliefs could be wrong.", "construct": "Intellectual Humility" }, "statement_b": { "text": "I enjoy listening to arguments that challenge my current point of view.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 5, "statement_a": { "text": "I tend to pause and think things through rather than relying on my gut instinct.", "construct": "Deliberative Stance" }, "statement_b": { "text": "When I find a topic interesting, I feel a strong desire to learn everything about it.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 6, "statement_a": { "text": "I like to understand the big picture before diving into the individual components.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I am drawn to tasks that require me to think deeply and concentrate.", "construct": "Need for Cognition" } },
+            { "item_id": 7, "statement_a": { "text": "I'm good at staying calm under pressure.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I'm quick to admit when a task is beyond my current expertise.", "construct": "Intellectual Humility" } },
+            { "item_id": 8, "statement_a": { "text": "I generally assume people are telling the truth.", "construct": "General Trust Propensity" }, "statement_b": { "text": "An unfair outcome is worse than an inefficient one.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 9, "statement_a": { "text": "I actively look for evidence that might contradict my existing beliefs.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I learn best by trying things out for myself.", "construct": "Experimental Drive" } },
+            { "item_id": 10, "statement_a": { "text": "The feeling of 'not knowing' motivates me to find an answer.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I prefer jobs where my day-to-day tasks are varied and unpredictable.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 11, "statement_a": { "text": "I find satisfaction in solving complex, difficult puzzles.", "construct": "Need for Cognition" }, "statement_b": { "text": "I prefer to carefully consider all options before making a choice.", "construct": "Deliberative Stance" } },
+            { "item_id": 12, "statement_a": { "text": "I often think about how small changes can impact the entire system.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I find it easy to place my trust in others on a team.", "construct": "General Trust Propensity" } },
+            { "item_id": 13, "statement_a": { "text": "I can function well in situations where the rules are not clearly defined.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "It's critical that business decisions are made with ethical principles in mind.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 14, "statement_a": { "text": "I enjoy taking things apart to understand how they work.", "construct": "Experimental Drive" }, "statement_b": { "text": "I can easily put myself in someone else's shoes.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 15, "statement_a": { "text": "I enjoy the process of discovery, even if it leads to more questions than answers.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I think it's important to recognize the limits of my own understanding.", "construct": "Intellectual Humility" } },
+            { "item_id": 16, "statement_a": { "text": "I make an effort to understand viewpoints that are very different from my own.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I am more interested in how things work together than how they work in isolation.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 17, "statement_a": { "text": "I double-check my reasoning before committing to a final answer.", "construct": "Deliberative Stance" }, "statement_b": { "text": "My default is to believe what people tell me.", "construct": "General Trust Propensity" } },
+            { "item_id": 18, "statement_a": { "text": "I enjoy thinking about abstract or philosophical questions.", "construct": "Need for Cognition" }, "statement_b": { "text": "I'm not bothered by messy problems that lack a clear solution.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 19, "statement_a": { "text": "Doing the right thing is more important to me than being popular.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I have a good sense of my own intellectual blind spots.", "construct": "Intellectual Humility" } },
+            { "item_id": 20, "statement_a": { "text": "I am good at understanding the motivations behind people's actions.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I have a wide range of interests and am curious about many things.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 21, "statement_a": { "text": "I prefer to learn by doing, even if it means I might fail at first.", "construct": "Experimental Drive" }, "statement_b": { "text": "I am more of a reflective person than an impulsive one.", "construct": "Deliberative Stance" } },
+            { "item_id": 22, "statement_a": { "text": "I am willing to cooperate with others, even if it means taking a personal risk.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I am genuinely interested in understanding why people disagree with me.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 23, "statement_a": { "text": "I find it more satisfying to create a comprehensive plan than to jump into execution.", "construct": "Need for Cognition" }, "statement_b": { "text": "I naturally look for how different pieces of a project connect with each other.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 24, "statement_a": { "text": "Unexpected changes to a plan don't typically fluster me.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "Changing my mind based on new evidence is a sign of strength.", "construct": "Intellectual Humility" } },
+            { "item_id": 25, "statement_a": { "text": "I love learning for the sake of learning.", "construct": "Epistemic Curiosity" }, "statement_b": { "text": "I believe that rules of fairness should apply to everyone equally.", "construct": "Principled Ethics Orientation" } },
+            { "item_id": 26, "statement_a": { "text": "I'm often the person others come to for emotional support or advice.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I am deliberate in my decision-making process.", "construct": "Deliberative Stance" } },
+            { "item_id": 27, "statement_a": { "text": "I would rather consider an opposing argument than ignore it.", "construct": "Actively Open-Minded Thinking" }, "statement_b": { "text": "I truly enjoy a task that involves a lot of mental effort.", "construct": "Need for Cognition" } },
+            { "item_id": 28, "statement_a": { "text": "I'd rather build a quick prototype than spend a long time on a theoretical design.", "construct": "Experimental Drive" }, "statement_b": { "text": "To solve a problem, I first try to understand its context and relationships.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 29, "statement_a": { "text": "I assume that my coworkers are competent and reliable.", "construct": "General Trust Propensity" }, "statement_b": { "text": "If I hear a new term, I'll often look it up immediately.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 30, "statement_a": { "text": "I'm comfortable saying 'I don't know' in a professional setting.", "construct": "Intellectual Humility" }, "statement_b": { "text": "My gut feelings are something I check with logic, not something I blindly follow.", "construct": "Deliberative Stance" } },
+            { "item_id": 31, "statement_a": { "text": "I hold my ethical standards regardless of what others are doing.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "I find it easy to change my position on an issue when presented with a good argument.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 32, "statement_a": { "text": "I thrive in fast-paced environments where things are constantly changing.", "construct": "Tolerance for Ambiguity" }, "statement_b": { "text": "I am sensitive to the emotional needs of my colleagues.", "construct": "Trait Emotional Intelligence" } },
+            { "item_id": 33, "statement_a": { "text": "I get more satisfaction from a challenging mental task than an easy one.", "construct": "Need for Cognition" }, "statement_b": { "text": "My default way to learn is by tinkering and testing.", "construct": "Experimental Drive" } },
+            { "item_id": 34, "statement_a": { "text": "I enjoy mapping out complex processes to see how everything fits together.", "construct": "Holistic Thinking Preference" }, "statement_b": { "text": "I am aware that my own knowledge is limited and incomplete.", "construct": "Intellectual Humility" } },
+            { "item_id": 35, "statement_a": { "text": "I would rather reflect on a problem for a while than give an immediate answer.", "construct": "Deliberative Stance" }, "statement_b": { "text": "Unraveling a complex subject is a very rewarding experience for me.", "construct": "Epistemic Curiosity" } },
+            { "item_id": 36, "statement_a": { "text": "I prefer to rely on the goodwill of others rather than being suspicious.", "construct": "General Trust Propensity" }, "statement_b": { "text": "I don't mind when a project's goals are unclear at the beginning.", "construct": "Tolerance for Ambiguity" } },
+            { "item_id": 37, "statement_a": { "text": "I'm good at mediating disagreements between people.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "I think it is important to expose myself to opinions I disagree with.", "construct": "Actively Open-Minded Thinking" } },
+            { "item_id": 38, "statement_a": { "text": "I believe that consistent, fair principles should guide all decisions.", "construct": "Principled Ethics Orientation" }, "statement_b": { "text": "When planning, I think about the ripple effects of a decision.", "construct": "Holistic Thinking Preference" } },
+            { "item_id": 39, "statement_a": { "text": "I like to experiment with different approaches to find the best one.", "construct": "Experimental Drive" }, "statement_b": { "text": "I can listen to criticism about my ideas without getting defensive.", "construct": "Intellectual Humility" } },
+            { "item_id": 40, "statement_a": { "text": "I find it easy to connect with people from different backgrounds.", "construct": "Trait Emotional Intelligence" }, "statement_b": { "text": "My primary goal is to ensure a decision is logical and well-reasoned, even if I have to rethink my initial stance.", "construct": "Deliberative Stance" } }
+        ];
+
+        // Psychometric framework (copied from express_test2.html)
+        const psychometricFramework = {
+            constructs: {
+                "Need for Cognition": { weight: 1.0 }, "Actively Open-Minded Thinking": { weight: 1.0 }, "Epistemic Curiosity": { weight: 1.0 }, "Tolerance for Ambiguity": { weight: 1.0 }, "Intellectual Humility": { weight: 1.0 }, "Trait Emotional Intelligence": { weight: 1.0 },
+                "Holistic Thinking Preference": { weight: 0.6 }, "Experimental Drive": { weight: 0.6 }, "Deliberative Stance": { weight: 0.6 }, "Principled Ethics Orientation": { weight: 0.6 }, "General Trust Propensity": { weight: 0.6 }
+            },
+            archetypes: {
+                "The Critical Interrogator": ["Need for Cognition", "Actively Open-Minded Thinking", "Intellectual Humility", "Deliberative Stance", "Principled Ethics Orientation"],
+                "The Human-Centric Strategist": ["Trait Emotional Intelligence", "Intellectual Humility", "General Trust Propensity", "Holistic Thinking Preference"],
+                "The Curious Experimenter": ["Epistemic Curiosity", "Tolerance for Ambiguity", "Experimental Drive"]
+            }
+        };
+
+        // Report content (copied from express_test2.html)
+        const reportContent = {
+            "The Critical Interrogator": { description: "This individual is a rigorous, analytical thinker driven to find the most accurate answer. They are defined by their propensity to challenge assumptions—both their own and the AI's.", strengths: ["Excels at identifying flaws in AI outputs", "Combating confirmation bias", "Ensuring analytical integrity", "Navigating ethical complexities with a principled approach"] },
+            "The Human-Centric Strategist": { description: "This individual excels at bridging the gap between computational insights and real-world human systems. They are defined by their ability to build trust, communicate effectively, and translate data into wise, contextualized action.", strengths: ["Excels at stakeholder management", "Communicating high-stakes information with empathy", "Fostering collaboration", "Anticipating the broader organizational impact of AI-driven decisions"] },
+            "The Curious Experimenter": { description: "This individual is a natural explorer and hands-on learner, motivated by a drive to understand how complex systems work. They are defined by their comfort with uncertainty and their proactive, experimental approach to developing technical fluency.", strengths: ["Excels at rapidly learning new AI tools", "Discovering novel applications", "Troubleshooting opaque systems through trial-and-error", "Maintaining effectiveness in ambiguous, fast-changing environments"] }
+        };
+
+        // Global functions for assessment functionality
+        async function generateLLMReport(archetypeScores, sortedArchetypes, weightedScores) {
+            try {
+                console.log('Requesting comprehensive report from backend...');
+                // Send results to LLM for enhanced analysis
+                const report = await apiCall(`/assessment/${currentSession.sessionId}/report`);
+                if (report && report.reportContent) {
+                    console.log('Received comprehensive report from backend');
+                    return {
+                        primaryArchetype: report.primaryArchetype || sortedArchetypes[0][0],
+                        archetypeDescription: report.archetypeDescription || reportContent[sortedArchetypes[0][0]].description,
+                        scores: {
+                            criticalInterrogator: (report.scores && report.scores.criticalInterrogator) || archetypeScores['The Critical Interrogator'].toFixed(1),
+                            humanCentricStrategist: (report.scores && report.scores.humanCentricStrategist) || archetypeScores['The Human-Centric Strategist'].toFixed(1),
+                            curiousExperimenter: (report.scores && report.scores.curiousExperimenter) || archetypeScores['The Curious Experimenter'].toFixed(1)
+                        },
+                        interpretation: report.interpretation || generateClientSideReport(archetypeScores, sortedArchetypes, weightedScores).interpretation,
+                        strengths: report.strengths || reportContent[sortedArchetypes[0][0]].strengths,
+                        comprehensiveReport: report.reportContent // Include the full comprehensive report
+                    };
+                } else {
+                    console.log('LLM report returned null or missing content, falling back to client-side report');
+                    return generateClientSideReport(archetypeScores, sortedArchetypes, weightedScores);
+                }
+            } catch (error) {
+                console.error('Failed to generate LLM report:', error);
+                // Fallback to client-side report
+                return generateClientSideReport(archetypeScores, sortedArchetypes, weightedScores);
+            }
+        }
+
+        function generateClientSideReport(archetypeScores, sortedArchetypes, weightedScores) {
+            // Generate Nuanced Interpretation
+            const [primary, secondary, tertiary] = sortedArchetypes;
+            let interpretation = '';
+            if (primary[1] > secondary[1] * 1.5) { // Dominant Profile
+                interpretation = `Your results show a strong and clear preference for the <strong>${primary[0]}</strong>. This suggests your natural approach is highly specialized, leaning heavily on its associated strengths. While you possess skills in the other areas, your dominant tendency is to lead with this style.`;
+            } else if (secondary[1] > tertiary[1] * 1.5) { // Dual-Specialization
+                interpretation = `Your profile highlights a powerful blend of the <strong>${primary[0]}</strong> and <strong>${secondary[0]}</strong> archetypes. This is a potent hybrid, suggesting you can effectively combine the strengths of both, adapting to be either more analytical or more people-focused as the situation demands.`;
+            } else { // Balanced Profile
+                interpretation = `Your profile indicates a remarkable balance across all three archetypes. This suggests you are a highly versatile individual, capable of adapting your style to the situation. You can analyze deeply, connect with people, and experiment with new tools with near-equal facility.`;
+            }
+
+            // Display Primary Archetype Details
+            const primaryContent = reportContent[primary[0]];
+            
+            return {
+                primaryArchetype: primary[0],
+                archetypeDescription: primaryContent.description,
+                scores: {
+                    criticalInterrogator: archetypeScores['The Critical Interrogator'].toFixed(1),
+                    humanCentricStrategist: archetypeScores['The Human-Centric Strategist'].toFixed(1),
+                    curiousExperimenter: archetypeScores['The Curious Experimenter'].toFixed(1)
+                },
+                interpretation: interpretation,
+                strengths: primaryContent.strengths
+            };
+        }
+
+        async function saveAnswersToBackend() {
+            if (!currentSession || !currentSession.sessionId) {
+                console.log('No session available, skipping backend save');
+                return;
+            }
+            try {
+                console.log(`Saving ${userAnswers.length} answers to backend for session ${currentSession.sessionId}`);
+                
+                // Prepare all answers for batch submission
+                const answers = userAnswers.map((chosenConstruct, i) => {
+                    const question = questions[i];
+                    const chosenStatementId = (chosenConstruct === question.statement_a.construct) ? 'A' : 'B';
+                    
+                    console.log(`Preparing answer ${i + 1}: ${chosenStatementId} for construct ${chosenConstruct}`);
+                    
+                    return {
+                        questionNumber: i + 1,
+                        chosenStatementId: chosenStatementId
+                    };
+                });
+                
+                // Send all answers in a single batch request
+                const response = await apiCall(`/assessment/${currentSession.sessionId}/answers`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        answers: answers
+                    })
+                });
+                
+                // Handle null response (204 No Content) as success
+                if (response === null) {
+                    console.log('All answers saved successfully in batch (204 No Content)');
+                } else {
+                    console.log('All answers saved successfully in batch');
+                }
+                
+                // Wait a moment for the backend to process, then check session status
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const status = await apiCall(`/assessment/${currentSession.sessionId}/status`);
+                if (status) {
+                    console.log('Session status after saving answers:', status);
+                } else {
+                    console.log('Session status check returned null (possibly 204)');
+                }
+                
+            } catch (error) {
+                console.error('Failed to save answers to backend:', error);
+                throw error; // Re-throw to be handled by caller
+            }
+        }
+
+        function renderReport(report) {
+            // Store the summary report in currentSession for later use
+            if (currentSession) {
+                currentSession.summaryReport = report;
+            }
+            const container = document.getElementById('assessment-container');
+            // Render the summary and the comprehensive report (markdown) in the same output
+            container.innerHTML = `
+                <div class="text-center fade-in">
+                    <div class="mb-6">
+                        <svg class="w-16 h-16 text-cyan-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-2xl font-semibold text-slate-800 mb-2">Assessment Complete!</h3>
+                        <p class="text-slate-600 mb-6">Your AI Navigator profile has been generated.</p>
+                        ${currentSession ? `<p class="text-sm text-slate-500">Session: ${currentSession.nickname}</p>` : ''}
+                    </div>
+                    <div class="bg-cyan-50 border border-cyan-200 rounded-lg p-6 mb-6">
+                        <h4 class="text-xl font-semibold text-cyan-800 mb-2">Your Primary Profile</h4>
+                        <p class="text-2xl font-bold text-cyan-700 mb-4">${report.primaryArchetype}</p>
+                        <p class="text-cyan-700">${report.archetypeDescription}</p>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-6">
+                        <h4 class="text-lg font-semibold text-slate-800 mb-3">Interpretation</h4>
+                        <p class="text-slate-700">${report.interpretation}</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white p-4 rounded-lg border border-slate-200">
+                            <h5 class="font-semibold text-slate-800 mb-2">Critical Interrogator</h5>
+                            <p class="text-2xl font-bold text-cyan-700">${report.scores.criticalInterrogator}</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-slate-200">
+                            <h5 class="font-semibold text-slate-800 mb-2">Human-Centric Strategist</h5>
+                            <p class="text-2xl font-bold text-teal-600">${report.scores.humanCentricStrategist}</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-slate-200">
+                            <h5 class="font-semibold text-slate-800 mb-2">Curious Experimenter</h5>
+                            <p class="text-2xl font-bold text-amber-600">${report.scores.curiousExperimenter}</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-slate-200 mb-6">
+                        <h4 class="text-lg font-semibold text-slate-800 mb-3">Primary Archetype Strengths</h4>
+                        <ul class="text-slate-700 space-y-2">
+                            ${report.strengths.map(s => `<li>• ${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="bg-white p-8 rounded-lg shadow-sm text-left max-w-4xl mx-auto mb-6">
+                        <div class="prose prose-slate max-w-none" id="comprehensive-report-markdown">
+                            <!-- Markdown will be rendered here -->
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button id="download-report-btn" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200" disabled>
+                            Download Report
+                        </button>
+                        <button id="restart-assessment-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200" onclick="handleRestartAssessment();">
+                            Repeat the Assessment
+                        </button>
+                    </div>
+                </div>
+            `;
+            // Render markdown (if available)
+            if (report.comprehensiveReport || report.reportContent) {
+                const reportContent = report.comprehensiveReport || report.reportContent;
+                // Use marked.js for markdown parsing, otherwise fallback to preformatted text
+                if (window.marked) {
+                    document.getElementById('comprehensive-report-markdown').innerHTML = marked.parse(reportContent);
+                } else {
+                    document.getElementById('comprehensive-report-markdown').innerHTML = `<pre>${reportContent}</pre>`;
+                }
+            } else {
+                document.getElementById('comprehensive-report-markdown').innerHTML = '<em>Comprehensive report content not available.</em>';
+            }
+            // Enable download button after confirming answers are saved
+            if (currentSession && currentSession.sessionId) {
+                (async function enableDownloadWhenReady() {
+                    try {
+                        // Only check status a few times with longer intervals
+                        for (let i = 0; i < 3; i++) {
+                            const status = await apiCall(`/assessment/${currentSession.sessionId}/status`);
+                            if (status && status.status === 'Completed') {
+                                document.getElementById('download-report-btn').disabled = false;
+                                break;
+                            }
+                            await new Promise(r => setTimeout(r, 1000)); // Wait 1 second between checks
+                        }
+                    } catch (e) {
+                        console.log('Status check failed, download button will remain disabled');
+                    }
+                })();
+            }
+            document.getElementById('download-report-btn').addEventListener('click', () => {
+                if (currentSession && currentSession.sessionId) {
+                    window.open(`http://localhost:8080/assessment/${currentSession.sessionId}/report/download`, '_blank');
+                } else {
+                    alert('Download not available for this session.');
+                }
+            });
+            // Note: Event listener for restart-assessment-btn will be handled by event delegation
+        }
+
+        
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Configure marked.js for safe markdown rendering
+            if (window.marked) {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+            }
+            const constructsData = [
+                { name: 'Need for Cognition (NFC)', description: 'The intrinsic motivation to engage in and enjoy effortful cognitive activities.' },
+                { name: 'Actively Open-Minded Thinking (AOT)', description: "The willingness to seek out and thoughtfully consider evidence that contradicts one's own beliefs." },
+                { name: 'Epistemic Curiosity (EC)', description: 'The desire for new knowledge, encompassing both the joy of discovery and the drive to resolve knowledge gaps.' },
+                { name: 'Tolerance for Ambiguity (TOA)', description: 'The ability to perceive and manage uncertain, complex, or novel situations without psychological distress.' },
+                { name: 'Intellectual Humility (IH)', description: "A non-threatening awareness of one's intellectual fallibility and an openness to being wrong." },
+                { name: 'Trait Emotional Intelligence (Trait EI)', description: 'A constellation of emotional self-perceptions, including empathy, assertiveness, and stress management.' },
+                { name: 'Holistic Thinking Preference (HTP)', description: 'A preference for understanding problems by examining interconnections and the system as a whole.' },
+                { name: 'Experimental Drive (ED)', description: 'An innate drive toward hands-on exploration, experimentation, and learning through iterative trial-and-error.' },
+                { name: 'Deliberative Stance (DS)', description: 'A preference for overriding an initial intuitive response to engage in more effortful, reflective, and logical analysis.' },
+                { name: 'Principled Ethics Orientation (PEO)', description: 'An orientation toward making decisions based on universal principles of fairness and justice.' },
+                { name: 'General Trust Propensity (GTP)', description: 'A general, trait-based willingness to trust others and accept vulnerability in social situations.' },
+            ];
+
+            const constructsGrid = document.getElementById('constructs-grid');
+            constructsData.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'construct-card bg-white p-4 rounded-lg shadow-sm';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h4 class="text-lg font-semibold">${c.name}</h4>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2 hidden">${c.description}</p>
+                `;
+                card.addEventListener('click', () => {
+                    card.querySelector('p').classList.toggle('hidden');
+                });
+                constructsGrid.appendChild(card);
+            });
+            
+            const slidersContainer = document.getElementById('sliders-container');
+            constructsData.forEach((c, index) => {
+                const sliderDiv = document.createElement('div');
+                sliderDiv.innerHTML = `
+                    <label for="slider-${index}" class="block text-sm font-medium text-slate-700">${c.name}</label>
+                    <div class="flex items-center space-x-3">
+                        <input type="range" id="slider-${index}" min="0" max="8" value="4" class="slider">
+                        <span id="value-${index}" class="font-semibold text-cyan-700 w-4 text-center">4</span>
+                    </div>
+                `;
+                slidersContainer.appendChild(sliderDiv);
+            });
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mobileNav = document.getElementById('mobile-nav');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            // --- Fix 1: Navigation logic for comprehensive report ---
+            // Prevent SPA navigation from overriding the comprehensive report view
+            // Note: isComprehensiveReportView is now defined globally
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const hash = e.target.getAttribute('href');
+                    showSection(hash);
+                });
+            });
+
+            mobileNav.addEventListener('change', (e) => {
+                showSection(e.target.value);
+            });
+
+            const ctx = document.getElementById('archetypeChart').getContext('2d');
+            const archetypeChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Critical Interrogator', 'Human-Centric Strategist', 'Curious Experimenter'],
+                    datasets: [{
+                        label: 'Archetype Score',
+                        data: [0, 0, 0],
+                        backgroundColor: 'rgba(8, 145, 178, 0.2)', // cyan-600 transparent
+                        borderColor: 'rgb(8, 145, 178)', // cyan-600
+                        pointBackgroundColor: 'rgb(8, 145, 178)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(8, 145, 178)'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: '#cbd5e1' // slate-300
+                            },
+                            grid: {
+                                color: '#e2e8f0' // slate-200
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                color: '#334155' // slate-700
+                            },
+                            ticks: {
+                                backdropColor: 'rgba(255, 255, 255, 0.75)',
+                                color: '#64748b' // slate-500
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 20
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            function updateSimulator() {
+                const rawScores = constructsData.map((_, index) => {
+                    const slider = document.getElementById(`slider-${index}`);
+                    const valueSpan = document.getElementById(`value-${index}`);
+                    valueSpan.textContent = slider.value;
+                    return parseInt(slider.value, 10);
+                });
+
+                // No weighting applied - use raw scores directly
+                const [nfc, aot, ec, toa, ih, tei, ht, ed, ds, peo, gtp] = rawScores;
+                
+                // Updated archetype formulas to match actual implementation
+                const interrogatorScore = nfc + aot + ec + ih + ds;
+                const strategistScore = tei + ht + peo + gtp;
+                const experimenterScore = toa + ed + ec + aot;
+
+                archetypeChart.data.datasets[0].data = [interrogatorScore, strategistScore, experimenterScore];
+                archetypeChart.update();
+
+                const scores = [
+                    { name: 'Critical Interrogator', score: interrogatorScore, color: 'text-cyan-700' },
+                    { name: 'Human-Centric Strategist', score: strategistScore, color: 'text-teal-500' },
+                    { name: 'Curious Experimenter', score: experimenterScore, color: 'text-amber-500' }
+                ];
+                
+                const primaryProfile = scores.reduce((max, current) => current.score > max.score ? current : max);
+                
+                const profileElement = document.getElementById('primary-profile');
+                profileElement.textContent = primaryProfile.name;
+                profileElement.className = `text-2xl font-bold ${primaryProfile.color}`;
+            }
+
+            const sliders = document.querySelectorAll('.slider');
+            sliders.forEach(slider => {
+                slider.addEventListener('input', updateSimulator);
+            });
+
+            updateSimulator();
+            showSection('#introduction');
+
+
+
+                        // Note: All assessment functions are now defined globally
+
+            // Note: resetAssessment function is now defined globally
+
+            // UI functions
+            // Note: showView function is now defined globally
+
+            // Note: updateProgress function is now defined globally
+
+            // Event listeners
+            document.getElementById('start-assessment-btn').addEventListener('click', () => {
+                startAssessment();
+            });
+
+            document.getElementById('simulate-assessment-btn').addEventListener('click', () => {
+                simulateAssessment();
+            });
+
+
+
+            // Event delegation for dynamically created buttons
+            document.addEventListener('click', (event) => {
+                if (event.target && event.target.id === 'restart-assessment-btn') {
+                    console.log('Restart assessment button clicked via event delegation');
+                    handleRestartAssessment();
+                }
+            });
+
+            // Reset assessment when switching to assessment tab
+            const assessmentLink = document.querySelector('a[href="#assessment"]');
+            assessmentLink.addEventListener('click', () => {
+                resetAssessment();
+            });
+
+            // Check for session parameter in URL for comprehensive report
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionParam = urlParams.get('session');
+            if (sessionParam) {
+                console.log('Session parameter found in URL:', sessionParam);
+                showComprehensiveReport(sessionParam);
+            } else {
+                console.log('No session parameter, showing introduction');
+                showSection('#introduction');
+            }
+
+            async function showComprehensiveReport(sessionId) {
+                try {
+                    console.log('Loading comprehensive report for session:', sessionId);
+                    isComprehensiveReportView = true;
+                    showView('loading-view');
+                    
+                    // First check if session is completed
+                    const status = await apiCall(`/assessment/${sessionId}/status`);
+                    console.log('Session status for comprehensive report:', status);
+                    
+                    if (status.status !== 'Completed') {
+                        throw new Error('Session not completed yet');
+                    }
+                    
+                    // Get the comprehensive report from backend
+                    const report = await apiCall(`/assessment/${sessionId}/report`);
+                    console.log('Comprehensive report loaded:', report);
+                    
+                    // Show comprehensive report view
+                    showComprehensiveReportView(report, sessionId);
+                    isComprehensiveReportView = false;
+                } catch (error) {
+                    isComprehensiveReportView = false;
+                    console.error('Failed to load comprehensive report:', error);
+                    
+                    // Show the assessment section and hide others
+                    contentSections.forEach(section => {
+                        if (section.id === 'assessment') {
+                            section.classList.remove('hidden');
+                        } else {
+                            section.classList.add('hidden');
+                        }
+                    });
+                    
+                    // Update navigation to show assessment as active
+                    navLinks.forEach(link => {
+                        if (link.getAttribute('href') === '#assessment') {
+                            link.classList.add('active');
+                        } else {
+                            link.classList.remove('active');
+                        }
+                    });
+                    mobileNav.value = '#assessment';
+                    
+                    // Show a more specific error message
+                    const container = document.getElementById('assessment-container');
+                    container.innerHTML = `
+                        <div class="text-center fade-in">
+                            <div class="mb-6">
+                                <svg class="w-16 h-16 text-red-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                                <h3 class="text-2xl font-semibold text-slate-800 mb-2">Report Not Available</h3>
+                                <p class="text-slate-600 mb-6">The comprehensive report is not ready yet or the session has expired.</p>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                                <button id="close-error-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                    Close
+                                </button>
+                                <button id="back-to-assessment-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                    Take New Assessment
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('close-error-btn').addEventListener('click', () => {
+                        isComprehensiveReportView = false;
+                        // Go back to the summary report view
+                        if (currentSession && currentSession.summaryReport) {
+                            renderReport(currentSession.summaryReport);
+                        } else {
+                            showView('results-view');
+                        }
+                    });
+                    
+                    document.getElementById('back-to-assessment-btn').addEventListener('click', () => {
+                        isComprehensiveReportView = false;
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                        resetAssessment();
+                    });
+                }
+            }
+
+            function showComprehensiveReportView(report, sessionId) {
+                // Show the assessment section and hide others
+                contentSections.forEach(section => {
+                    if (section.id === 'assessment') {
+                        section.classList.remove('hidden');
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                });
+                
+                // Update navigation to show assessment as active
+                navLinks.forEach(link => {
+                    if (link.getAttribute('href') === '#assessment') {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+                mobileNav.value = '#assessment';
+                
+                const container = document.getElementById('assessment-container');
+                container.innerHTML = `
+                    <div class="text-center fade-in">
+                        <div class="mb-6">
+                            <svg class="w-16 h-16 text-cyan-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <h3 class="text-2xl font-semibold text-slate-800 mb-2">Comprehensive Assessment Report</h3>
+                            <p class="text-slate-600 mb-6">Detailed analysis of your AI Navigator profile</p>
+                        </div>
+                        
+                        <div class="bg-white p-8 rounded-lg shadow-sm text-left max-w-4xl mx-auto">
+                            <div class="prose prose-slate max-w-none" id="comprehensive-report-content">
+                                ${report.reportContent || 'Comprehensive report content not available.'}
+                            </div>
+                        </div>
+
+                        <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+                            <button id="download-comprehensive-btn" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                Download Report
+                            </button>
+                            <button id="close-comprehensive-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                Close
+                            </button>
+                            <button id="back-to-assessment-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+                                Take New Assessment
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Parse markdown content if available
+                if (report.reportContent && window.marked) {
+                    document.getElementById('comprehensive-report-content').innerHTML = marked.parse(report.reportContent);
+                }
+                
+                // Add event listeners
+                document.getElementById('download-comprehensive-btn').addEventListener('click', () => {
+                                            window.open(`http://localhost:8080/assessment/${sessionId}/report/download`, '_blank');
+                });
+
+                document.getElementById('close-comprehensive-btn').addEventListener('click', () => {
+                    isComprehensiveReportView = false;
+                    // Go back to the summary report view
+                    if (currentSession && currentSession.summaryReport) {
+                        renderReport(currentSession.summaryReport);
+                    } else {
+                        showView('results-view');
+                    }
+                });
+
+                document.getElementById('back-to-assessment-btn').addEventListener('click', () => {
+                    isComprehensiveReportView = false;
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                    resetAssessment();
+                });
+            }
+
+            // Fix the startAssessment function to prevent double-click issues
+            let isStartingAssessment = false;
+            
+            async function startAssessment() {
+                if (isStartingAssessment) {
+                    console.log('Assessment already starting, ignoring click');
+                    return;
+                }
+                
+                isStartingAssessment = true;
+                showView('loading-view');
+                
+                try {
+                    // Get LLM-generated nickname
+                    const session = await apiCall('/assessment', {
+                        method: 'POST',
+                        body: JSON.stringify({})
+                    });
+                    currentSession = session;
+                    console.log('Session created:', session);
+                    
+                    // Start client-side assessment
+                    currentQuestionIndex = 0;
+                    userAnswers = [];
+                    showView('assessment-progress-view');
+                    displayQuestion();
+                } catch (error) {
+                    console.error('Failed to start assessment:', error);
+                    // Fallback to client-side only if API fails
+                    currentSession = { sessionId: 'local-' + Date.now(), nickname: 'Explorer' };
+                    currentQuestionIndex = 0;
+                    userAnswers = [];
+                    showView('assessment-progress-view');
+                    displayQuestion();
+                } finally {
+                    isStartingAssessment = false;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

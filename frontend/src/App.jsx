@@ -38,6 +38,7 @@ function App() {
         <ReportPage
           session={session}
           report={report}
+          onRepeatAssessment={handleRestart}
         />
       );
     default:

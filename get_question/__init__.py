@@ -10,9 +10,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     Get Question API - Fetches the next question pair for a given session
     
     GET /api/assessment/{sessionId}/question
+    OPTIONS /api/assessment/{sessionId}/question (for CORS preflight)
     Returns: 200 OK with question data or 404 if session not found
     """
     logging.info('Python HTTP trigger function processed a request.')
+    
+    # Handle CORS preflight requests
+    if req.method == "OPTIONS":
+        return func.HttpResponse(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Max-Age": "86400"
+            }
+        )
     
     try:
         # Get session ID from URL path
@@ -21,7 +34,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Session ID is required"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Get session from shared storage
@@ -32,7 +50,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "Assessment already completed"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Determine next question number based on existing answers
@@ -44,7 +67,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps({"error": "All questions completed"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+                }
             )
         
         # Get question pair data
@@ -60,7 +88,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps(response_data),
             status_code=200,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
         
     except Exception as e:
@@ -68,7 +101,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps({"error": "Internal server error"}),
             status_code=500,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
         )
 
 def get_question_pair(question_number):
